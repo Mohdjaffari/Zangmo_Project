@@ -1,0 +1,247 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-color: #172331;
+  --modal-bg: #ffffff;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --border-color: #e5e7eb;
+  --input-bg: #ffffff;
+  --primary-btn: #1d2838;
+  --primary-btn-hover: #2d3b4f;
+  --status-online: #f97316;
+  --link-color: #ea580c;
+  --font-family: 'Inter', sans-serif;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  background-color: var(--bg-color);
+  height: 100vh;
+}
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100%;
+  position: relative;
+  /* Blurred Kitchen background with dark overlay */
+  background: linear-gradient(rgba(23, 35, 49, 0.88), rgba(23, 35, 49, 0.88)), url('https://images.unsplash.com/photo-1556910103-1c02745a872e?auto=format&fit=crop&q=80') center/cover no-repeat;
+}
+
+.login-modal {
+  background-color: var(--modal-bg);
+  width: 100%;
+  max-width: 400px;
+  border-radius: 4px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  padding: 40px 32px;
+  box-sizing: border-box;
+  text-align: center;
+  position: relative;
+  z-index: 10;
+}
+
+.logo-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.logo-box {
+  background-color: #374151;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.logo-box svg {
+  width: 24px;
+  height: 24px;
+}
+
+.login-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.5px;
+}
+
+.login-subtitle {
+  margin: 8px 0 32px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.form-group {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.form-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.forgot-link {
+  font-size: 12px;
+  color: var(--link-color);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+  color: #c2410c;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 10px 12px 10px 40px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--text-main);
+  background-color: var(--input-bg);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: var(--font-family);
+  height: 42px;
+}
+
+.input-field::placeholder {
+  color: #9ca3af;
+}
+
+.input-field:focus {
+  border-color: #6b7280;
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.1);
+}
+
+.input-action {
+  position: absolute;
+  right: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.input-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+.input-action:hover {
+  color: var(--text-main);
+}
+
+.dropdown-arrow {
+  position: absolute;
+  right: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropdown-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+select.input-field {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.submit-btn {
+  width: 100%;
+  background-color: var(--primary-btn);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  transition: background-color 0.2s;
+  font-family: var(--font-family);
+}
+
+.submit-btn:hover {
+  background-color: var(--primary-btn-hover);
+}
+
+.submit-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.system-status {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.status-indicator {
+  color: var(--status-online);
+  font-weight: 600;
+}
