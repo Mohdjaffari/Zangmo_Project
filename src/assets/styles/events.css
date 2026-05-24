@@ -1630,4 +1630,31 @@
   }
 }
 
+.payment-term-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.payment-term-btn:hover {
+  background: #fefaf6 !important;
+  border-color: #9a3412 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.payment-term-btn.active:hover {
+  background: #fffbeb !important;
+  border-color: #843c0c !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* RESPONSIVE LAYOUT MEDIA QUERIES */
+@media (max-width: 1024px) {
+  .builder-content-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
 

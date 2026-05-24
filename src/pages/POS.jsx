@@ -396,7 +396,7 @@ export default function POS() {
       <div className="pos-main-wrapper" style={{ flexDirection: 'column' }}>
         <Topbar title="POS Terminal" />
 
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', width: '100%' }}>
+        <div className="pos-workspace">
           {/* Main interactive POS screen grid */}
           <div className="pos-billing-area">
 

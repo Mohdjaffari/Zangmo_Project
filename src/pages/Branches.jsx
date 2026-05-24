@@ -34,6 +34,15 @@ function AddBranch({ onCancel }) {
   const [branchName, setBranchName] = useState('Downtown Central Hub');
   const [address, setAddress] = useState('1248 Enterprise Way, Ste 400');
   const [manager, setManager] = useState('Marcus Sterling');
+  const [currency, setCurrency] = useState(() => {
+    return localStorage.getItem('zangmo_default_currency') || 'Rs.';
+  });
+  
+  const handleCurrencyChange = (val) => {
+    setCurrency(val);
+    localStorage.setItem('zangmo_default_currency', val);
+    window.dispatchEvent(new Event('storage'));
+  };
   
   return (
     <div className="add-branch-container">
@@ -121,9 +130,25 @@ function AddBranch({ onCancel }) {
               
               <div className="fiscal-column">
                 <label className="form-label">TAX & CURRENCY</label>
-                <div className="currency-row">
+                <div className="currency-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div className="currency-label">Default Currency</div>
-                  <div className="currency-val">USD ($)</div>
+                  <select 
+                    value={currency} 
+                    onChange={e => handleCurrencyChange(e.target.value)}
+                    className="input-field"
+                    style={{ 
+                      width: '120px', 
+                      padding: '4px 8px', 
+                      borderRadius: '6px', 
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      marginTop: 0
+                    }}
+                  >
+                    <option value="Rs.">Rs. (Rupees)</option>
+                    <option value="$">USD ($)</option>
+                  </select>
                 </div>
                 
                 <label className="form-label" style={{marginTop: '20px'}}>BASE TAX RATE (%)</label>
@@ -232,6 +257,17 @@ export default function Branches() {
   const [currentView, setCurrentView] = useState('list');
   const [branches, setBranches] = useState(initialBranchesData);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [currency, setCurrency] = useState(() => {
+    return localStorage.getItem('zangmo_default_currency') || 'Rs.';
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setCurrency(localStorage.getItem('zangmo_default_currency') || 'Rs.');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
   
   // Search query state
   const [searchQuery, setSearchQuery] = useState('');
@@ -319,7 +355,9 @@ export default function Branches() {
                       <div className="branch-metrics">
                         <div className="metric-box">
                           <div className="metric-label">Monthly Rev</div>
-                          <div className="metric-value">{branch.monthlyRev}</div>
+                          <div className="metric-value">
+                            {branch.monthlyRev.replace('$', currency === 'Rs.' ? 'Rs. ' : '$')}
+                          </div>
                         </div>
                         <div className="metric-box">
                           <div className="metric-label">Total Staff</div>

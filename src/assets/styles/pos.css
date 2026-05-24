@@ -1152,3 +1152,45 @@
   min-width: 300px;
 }
 
+.pos-workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* RESPONSIVE LAYOUT MEDIA QUERIES */
+@media (max-width: 1024px) {
+  .pos-order-sidebar {
+    width: 320px;
+  }
+  .bottom-sections-row > .menu-section:first-child,
+  .bottom-sections-row > .menu-section:last-child {
+    min-width: 100% !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .pos-workspace {
+    flex-direction: column !important;
+  }
+  .pos-order-sidebar {
+    width: 100% !important;
+    border-left: none;
+    border-top: 1px solid #e2e8f0;
+    height: 380px;
+    flex: none;
+  }
+  .pos-billing-area {
+    flex: 1;
+    padding: 16px 20px;
+  }
+}
+
+@media (max-width: 576px) {
+  .pos-search-box {
+    width: 100%;
+  }
+}
+
+

@@ -73,6 +73,23 @@ export default function Events() {
   const [selectedPackage, setSelectedPackage] = useState('Standard');
   const [activeTab, setActiveTab] = useState('calendar'); // 'calendar' | 'builder'
   
+  const [currency, setCurrency] = useState(() => {
+    return localStorage.getItem('zangmo_default_currency') || 'Rs.';
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setCurrency(localStorage.getItem('zangmo_default_currency') || 'Rs.');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const [paymentOption, setPaymentOption] = useState('full'); // full | half | advance
+  const [customAdvancePercent, setCustomAdvancePercent] = useState(25);
+  const [depositPaid, setDepositPaid] = useState(false);
+  const [paidAmount, setPaidAmount] = useState(0);
+  
   // Package Builder States
   const [selectedBuilderPackage, setSelectedBuilderPackage] = useState('Economy');
   const [builderCategory, setBuilderCategory] = useState('All Items');
@@ -387,6 +404,36 @@ export default function Events() {
     setSelectedDate(today);
   };
 
+  // Helper to format values dynamically
+  const getPackagePriceVal = (pkgName, curSymbol) => {
+    if (curSymbol === '$') {
+      return pkgName === 'Economy' ? 45 : pkgName === 'Standard' ? 75 : pkgName === 'Premium' ? 110 : 0;
+    } else {
+      return pkgName === 'Economy' ? 1850 : pkgName === 'Standard' ? 3200 : pkgName === 'Premium' ? 4800 : 0;
+    }
+  };
+
+  const formatCurrencyVal = (amount, curSymbol) => {
+    return `${curSymbol} ${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const getEventPaymentInfo = (evt) => {
+    const isCompleted = evt.status === 'Completed';
+    const paid = evt.paidAmount !== undefined ? evt.paidAmount : (isCompleted ? evt.price : 0);
+    const balance = evt.balance !== undefined ? evt.balance : (isCompleted ? 0 : evt.price);
+    
+    let statusText = evt.status;
+    if (paid > 0 && paid < evt.price) {
+      statusText = 'Partially Paid';
+    } else if (paid === evt.price) {
+      statusText = 'Completed';
+    } else if (paid === 0) {
+      statusText = 'Unpaid';
+    }
+    
+    return { paid, balance, statusText };
+  };
+
   // Modal functions
   const openAddModal = (dateObj = null) => {
     setEditingEvent(null);
@@ -398,8 +445,12 @@ export default function Events() {
     setGuests(100);
     setSelectedPackage('Standard');
     setServiceType('Executive Banquet');
-    setPrice(7500); // 100 guests * $75 = 7500
+    setPrice(100 * getPackagePriceVal('Standard', currency));
     setStep(1);
+    setPaymentOption('full');
+    setCustomAdvancePercent(25);
+    setDepositPaid(false);
+    setPaidAmount(0);
     setIsModalOpen(true);
   };
 
@@ -414,13 +465,23 @@ export default function Events() {
     setServiceType(eventObj.serviceType);
     setPrice(eventObj.price);
     
+    // Payment details loading
+    setPaymentOption(eventObj.paymentOption || 'full');
+    setCustomAdvancePercent(eventObj.customAdvancePercent || 25);
+    setDepositPaid(eventObj.depositPaid || (eventObj.status === 'Completed' || (eventObj.paidAmount && eventObj.paidAmount > 0)));
+    setPaidAmount(eventObj.paidAmount !== undefined ? eventObj.paidAmount : (eventObj.status === 'Completed' ? eventObj.price : 0));
+    
     // Guess the package based on unit price
     const perPerson = eventObj.guests > 0 ? Math.round(eventObj.price / eventObj.guests) : 0;
-    if (perPerson === 45) {
+    const economyPrice = getPackagePriceVal('Economy', currency);
+    const standardPrice = getPackagePriceVal('Standard', currency);
+    const premiumPrice = getPackagePriceVal('Premium', currency);
+    
+    if (perPerson === economyPrice || perPerson === 45 || perPerson === 1850) {
       setSelectedPackage('Economy');
-    } else if (perPerson === 75) {
+    } else if (perPerson === standardPrice || perPerson === 75 || perPerson === 3200) {
       setSelectedPackage('Standard');
-    } else if (perPerson === 110) {
+    } else if (perPerson === premiumPrice || perPerson === 110 || perPerson === 4800) {
       setSelectedPackage('Premium');
     } else {
       setSelectedPackage('Custom');
@@ -437,37 +498,63 @@ export default function Events() {
       return;
     }
 
+    let finalPaidAmount = 0;
+    let finalStatus = status;
+
+    if (paymentOption === 'full') {
+      if (depositPaid) {
+        finalPaidAmount = price;
+        finalStatus = 'Completed';
+      } else {
+        finalPaidAmount = 0;
+        finalStatus = 'Pending Payment';
+      }
+    } else {
+      const calculatedDeposit = paymentOption === 'half' ? (price * 0.5) : (price * (customAdvancePercent / 100));
+      if (depositPaid) {
+        finalPaidAmount = calculatedDeposit;
+        finalStatus = 'Confirmed';
+      } else {
+        finalPaidAmount = 0;
+        finalStatus = 'Pending Payment';
+      }
+    }
+
+    const eventPayload = {
+      title,
+      date: eventDate,
+      time: eventTime,
+      status: finalStatus,
+      type,
+      guests: parseInt(guests) || 0,
+      serviceType,
+      price: parseFloat(price) || 0,
+      paymentOption,
+      customAdvancePercent: parseInt(customAdvancePercent) || 0,
+      depositPaid,
+      paidAmount: finalPaidAmount,
+      balance: (parseFloat(price) || 0) - finalPaidAmount
+    };
+
     if (editingEvent) {
       const updated = events.map(evt => {
         if (evt.id === editingEvent.id) {
           return {
             ...evt,
-            title,
-            date: eventDate,
-            time: eventTime,
-            status,
-            type,
-            guests: parseInt(guests) || 0,
-            serviceType,
-            price: parseFloat(price) || 0
+            ...eventPayload
           };
         }
         return evt;
       });
       setEvents(updated);
+      showToast('Event updated successfully.', 'success');
     } else {
       const newEvtObj = {
         id: Date.now(),
-        title,
-        date: eventDate,
-        time: eventTime,
-        status,
-        type,
-        guests: parseInt(guests) || 0,
-        serviceType,
-        price: parseFloat(price) || 0
+        ...eventPayload
       };
       setEvents([newEvtObj, ...events]);
+      showToast('Event created successfully.', 'success');
     }
     setIsModalOpen(false);
   };
@@ -563,7 +650,9 @@ export default function Events() {
   const laborAllocation = ingredientCost * 0.15;
   const bulkDiscount = builderHeadcount > 100 ? (ingredientCost + laborAllocation) * (builderDiscount / 100) : 0;
   
-  const baseSellingPrice = selectedBuilderPackage === 'Economy' ? 1850 : selectedBuilderPackage === 'Standard' ? 3200 : 4800;
+  const baseSellingPrice = currency === '$' 
+    ? (selectedBuilderPackage === 'Economy' ? 45 : selectedBuilderPackage === 'Standard' ? 75 : 110)
+    : (selectedBuilderPackage === 'Economy' ? 1850 : selectedBuilderPackage === 'Standard' ? 3200 : 4800);
   const pricePerPerson = baseSellingPrice;
   const totalRevenue = pricePerPerson * builderHeadcount;
   
@@ -719,19 +808,26 @@ export default function Events() {
                       onClick={() => setSelectedDate(cell.date)}
                     >
                       <div className="day-number">{cell.date.getDate()}</div>
-                      {dayEvents.map(evt => (
-                        <div 
-                          key={evt.id}
-                          className={`event-badge ${getBadgeClass(evt.status)}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditModal(evt);
-                          }}
-                        >
-                          <span className="badge-title">{evt.title}</span>
-                          <span className="badge-time">{evt.time}</span>
-                        </div>
-                      ))}
+                      {dayEvents.map(evt => {
+                        const { paid, statusText } = getEventPaymentInfo(evt);
+                        let badgeClass = 'badge-pending';
+                        if (paid === evt.price || evt.status === 'Completed') badgeClass = 'badge-completed';
+                        else if (paid > 0 && paid < evt.price) badgeClass = 'badge-confirmed';
+
+                        return (
+                          <div 
+                            key={evt.id}
+                            className={`event-badge ${badgeClass}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(evt);
+                            }}
+                          >
+                            <span className="badge-title">{evt.title}</span>
+                            <span className="badge-time">{evt.time} • {statusText}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
@@ -740,13 +836,13 @@ export default function Events() {
               {/* Color Legend Row */}
               <div className="legend-row">
                 <div className="legend-item">
-                  <span className="dot confirmed"></span> Confirmed
+                  <span className="dot completed"></span> Paid in Full
                 </div>
                 <div className="legend-item">
-                  <span className="dot pending"></span> Pending Payment
+                  <span className="dot confirmed"></span> Partially Paid
                 </div>
                 <div className="legend-item">
-                  <span className="dot completed"></span> Completed
+                  <span className="dot pending"></span> Unpaid / Pending
                 </div>
               </div>
             </div>
@@ -776,33 +872,73 @@ export default function Events() {
                   <span className="badge-total">{filteredEventsList.length} Total</span>
                 </h3>
                 <div className="upcoming-list" style={{ flex: 1 }}>
-                  {filteredEventsList.map(evt => (
-                    <div className="event-card" key={evt.id} onClick={() => openEditModal(evt)}>
-                      <div className="card-header-row">
-                        <span className={`card-status ${getStatusClass(evt.status)}`}>
-                          {evt.status === 'Pending Payment' ? 'Pending' : evt.status}
-                        </span>
-                        <span className="card-date">
-                          {new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                      <h4>{evt.title}</h4>
-                      <div className="details">
-                        {evt.guests} Guests • {evt.serviceType}
-                      </div>
-                      <div className="card-pricing-row">
-                        {evt.status === 'Completed' ? (
-                          <span className="paid-badge">
-                            <CheckCircleIcon /> Paid in Full
+                  {filteredEventsList.map(evt => {
+                    const { paid, balance, statusText } = getEventPaymentInfo(evt);
+                    const isFullyPaid = paid === evt.price || evt.status === 'Completed';
+                    const isPartiallyPaid = paid > 0 && paid < evt.price;
+                    
+                    let statusBadgeClass = 'status-pending';
+                    if (isFullyPaid) statusBadgeClass = 'status-completed';
+                    else if (isPartiallyPaid) statusBadgeClass = 'status-confirmed';
+
+                    return (
+                      <div className="event-card" key={evt.id} onClick={() => openEditModal(evt)}>
+                        <div className="card-header-row">
+                          <span className={`card-status ${statusBadgeClass}`}>
+                            {statusText}
                           </span>
-                        ) : (
-                          <span className="price-text">
-                            <WalletIcon /> Price: <span className="price-value">Rs. {evt.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="card-date">
+                            {new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
-                        )}
+                        </div>
+                        <h4>{evt.title}</h4>
+                        <div className="details" style={{ marginBottom: '8px' }}>
+                          {evt.guests} Guests • {evt.serviceType}
+                        </div>
+                        
+                        {/* Detailed invoice metrics in card */}
+                        <div className="card-payment-breakdown" style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: '4px',
+                          fontSize: '11px',
+                          background: '#f1f5f9',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          marginBottom: '10px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b', fontWeight: '500' }}>Total Cost:</span>
+                            <span style={{ fontWeight: '700', color: '#1e293b' }}>{formatCurrencyVal(evt.price, currency)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b', fontWeight: '500' }}>Paid:</span>
+                            <span style={{ fontWeight: '700', color: isFullyPaid ? '#10b981' : isPartiallyPaid ? '#b45309' : '#dc2626' }}>
+                              {formatCurrencyVal(paid, currency)}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #cbd5e1', paddingTop: '4px', marginTop: '2px' }}>
+                            <span style={{ color: '#475569', fontWeight: '600' }}>Balance Due:</span>
+                            <span style={{ fontWeight: '800', color: balance > 0 ? '#b45309' : '#475569' }}>
+                              {formatCurrencyVal(balance, currency)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="card-pricing-row" style={{ border: 'none', paddingTop: 0 }}>
+                          {isFullyPaid ? (
+                            <span className="paid-badge">
+                              <CheckCircleIcon /> Paid in Full
+                            </span>
+                          ) : (
+                            <span className="price-text" style={{ fontSize: '11px', fontWeight: '600' }}>
+                              <WalletIcon /> Balance: <span className="price-value" style={{ fontWeight: '800', color: '#b45309' }}>{formatCurrencyVal(balance, currency)}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {filteredEventsList.length === 0 && (
                     <div style={{ textAlign: 'center', color: '#64748b', fontSize: '13px', padding: '24px 0' }}>
                       No matching upcoming events.
@@ -1101,6 +1237,8 @@ export default function Events() {
             className="modal" 
             style={{ 
               width: step === 2 ? '920px' : step === 3 ? '600px' : '520px', 
+              maxWidth: '95vw',
+              boxSizing: 'border-box',
               transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)' 
             }} 
             onClick={(e) => e.stopPropagation()}
@@ -1210,9 +1348,9 @@ export default function Events() {
                           const val = parseInt(e.target.value) || 0;
                           setGuests(val);
                           // Re-calculate price based on package type if not custom
-                          if (selectedPackage === 'Economy') setPrice(val * 45);
-                          else if (selectedPackage === 'Standard') setPrice(val * 75);
-                          else if (selectedPackage === 'Premium') setPrice(val * 110);
+                          if (selectedPackage !== 'Custom') {
+                            setPrice(val * getPackagePriceVal(selectedPackage, currency));
+                          }
                         }} 
                         min="1"
                       />
@@ -1229,29 +1367,33 @@ export default function Events() {
                         onClick={() => {
                           setSelectedPackage('Economy');
                           setServiceType('Standard Bistro');
-                          setPrice(guests * 45);
+                          setPrice(guests * getPackagePriceVal('Economy', currency));
                         }}
                       >
                         <span className="package-type-badge economy">Economy</span>
                         <h4>Standard Bistro</h4>
                         <div className="core-menu-section">
-                          <div className="core-menu-title">Core Menu</div>
+                          <div className="core-menu-title">Core Menu Items</div>
                           <ul className="core-menu-list">
-                            <li className="core-menu-item">1 Appetizer • 2 Mains</li>
-                            <li className="core-menu-item">House Salad & Bread</li>
-                            <li className="core-menu-item">Soft Drink Selection</li>
-                            <li className="core-menu-item">Dessert Platter</li>
+                            {(builderDrafts.Economy || []).map((item, idx) => (
+                              <li className="core-menu-item" key={idx}>
+                                {item.name} ({item.unitsPerPerson || 1.0}x)
+                              </li>
+                            ))}
+                            {(builderDrafts.Economy || []).length === 0 && (
+                              <li className="core-menu-item" style={{ fontStyle: 'italic', listStyle: 'none' }}>No items in package</li>
+                            )}
                           </ul>
                         </div>
                         <hr className="package-divider" />
                         <div className="price-row">
                           <span className="price-label">Per Person</span>
-                          <span className="price-val">$45.00</span>
+                          <span className="price-val">{formatCurrencyVal(getPackagePriceVal('Economy', currency), currency)}</span>
                         </div>
                         <div className="metrics-row">
                           <div className="metric-box">
                             <span className="metric-lbl">Total Cost</span>
-                            <span className="metric-val">${(guests * 45).toLocaleString()}</span>
+                            <span className="metric-val">{formatCurrencyVal(guests * getPackagePriceVal('Economy', currency), currency)}</span>
                           </div>
                           <div className="metric-box">
                             <span className="metric-lbl">Est. Margin</span>
@@ -1272,30 +1414,38 @@ export default function Events() {
                         onClick={() => {
                           setSelectedPackage('Standard');
                           setServiceType('Executive Banquet');
-                          setPrice(guests * 75);
+                          setPrice(guests * getPackagePriceVal('Standard', currency));
                         }}
                       >
                         <span className="popular-badge">Most Popular</span>
                         <span className="package-type-badge standard">Standard</span>
                         <h4>Executive Banquet</h4>
                         <div className="core-menu-section">
-                          <div className="core-menu-title">Core Menu</div>
+                          <div className="core-menu-title">Core Menu Items</div>
                           <ul className="core-menu-list">
-                            <li className="core-menu-item">3 Appetizers • 3 Mains</li>
-                            <li className="core-menu-item">Premium Side Dishes</li>
-                            <li className="core-menu-item">Mocktails & Hot Drinks</li>
-                            <li className="core-menu-item">Plated Dessert Bar</li>
+                            {(builderDrafts.Standard || []).map((item, idx) => (
+                              <li className="core-menu-item" key={idx}>
+                                {item.name} ({item.unitsPerPerson || 1.0}x)
+                              </li>
+                            ))}
+                            {(builderDrafts.Standard || []).length === 0 && (
+                              <li className="core-menu-item" style={{ fontStyle: 'italic', listStyle: 'none' }}>No items in package</li>
+                            )}
                           </ul>
                         </div>
                         <hr className="package-divider" />
                         <div className="price-row">
                           <span className="price-label">Per Person</span>
-                          <span className="price-val" style={{ color: selectedPackage === 'Standard' ? '#843c0c' : undefined }}>$75.00</span>
+                          <span className="price-val" style={{ color: selectedPackage === 'Standard' ? '#843c0c' : undefined }}>
+                            {formatCurrencyVal(getPackagePriceVal('Standard', currency), currency)}
+                          </span>
                         </div>
                         <div className="metrics-row">
                           <div className="metric-box">
                             <span className="metric-lbl">Total Cost</span>
-                            <span className="metric-val" style={{ color: selectedPackage === 'Standard' ? '#843c0c' : undefined }}>${(guests * 75).toLocaleString()}</span>
+                            <span className="metric-val" style={{ color: selectedPackage === 'Standard' ? '#843c0c' : undefined }}>
+                              {formatCurrencyVal(guests * getPackagePriceVal('Standard', currency), currency)}
+                            </span>
                           </div>
                           <div className="metric-box">
                             <span className="metric-lbl">Est. Margin</span>
@@ -1316,29 +1466,33 @@ export default function Events() {
                         onClick={() => {
                           setSelectedPackage('Premium');
                           setServiceType('Royal Signature');
-                          setPrice(guests * 110);
+                          setPrice(guests * getPackagePriceVal('Premium', currency));
                         }}
                       >
                         <span className="package-type-badge premium">Premium</span>
                         <h4>Royal Signature</h4>
                         <div className="core-menu-section">
-                          <div className="core-menu-title">Core Menu</div>
+                          <div className="core-menu-title">Core Menu Items</div>
                           <ul className="core-menu-list">
-                            <li className="core-menu-item">Unlimited Appetizers</li>
-                            <li className="core-menu-item">5 Premium Main Courses</li>
-                            <li className="core-menu-item">Chef's Signature Buffet</li>
-                            <li className="core-menu-item">Premium Dessert Station</li>
+                            {(builderDrafts.Premium || []).map((item, idx) => (
+                              <li className="core-menu-item" key={idx}>
+                                {item.name} ({item.unitsPerPerson || 1.0}x)
+                              </li>
+                            ))}
+                            {(builderDrafts.Premium || []).length === 0 && (
+                              <li className="core-menu-item" style={{ fontStyle: 'italic', listStyle: 'none' }}>No items in package</li>
+                            )}
                           </ul>
                         </div>
                         <hr className="package-divider" />
                         <div className="price-row">
                           <span className="price-label">Per Person</span>
-                          <span className="price-val">$110.00</span>
+                          <span className="price-val">{formatCurrencyVal(getPackagePriceVal('Premium', currency), currency)}</span>
                         </div>
                         <div className="metrics-row">
                           <div className="metric-box">
                             <span className="metric-lbl">Total Cost</span>
-                            <span className="metric-val">${(guests * 110).toLocaleString()}</span>
+                            <span className="metric-val">{formatCurrencyVal(guests * getPackagePriceVal('Premium', currency), currency)}</span>
                           </div>
                           <div className="metric-box">
                             <span className="metric-lbl">Est. Margin</span>
@@ -1375,7 +1529,7 @@ export default function Events() {
                             onClick={() => {
                               setSelectedPackage('Standard');
                               setServiceType('Executive Banquet');
-                              setPrice(guests * 75);
+                              setPrice(guests * getPackagePriceVal('Standard', currency));
                             }}
                           >
                             Remove Customization
@@ -1394,12 +1548,12 @@ export default function Events() {
                             />
                           </div>
                           <div className="col">
-                            <label className="form-label" style={{ fontSize: '10px' }}>Custom Per Person Price ($)</label>
+                            <label className="form-label" style={{ fontSize: '10px' }}>Custom Per Person Price ({currency})</label>
                             <input 
                               type="number" 
                               className="input-field" 
-                              placeholder="e.g. 80" 
-                              value={guests > 0 ? (price / guests) : 0} 
+                              placeholder={currency === '$' ? "e.g. 80" : "e.g. 3500"} 
+                              value={guests > 0 ? Math.round(price / guests) : 0} 
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value) || 0;
                                 setPrice(val * guests);
@@ -1432,46 +1586,178 @@ export default function Events() {
                           <span className="review-val">{type}</span>
                         </div>
                         <div className="review-item">
-                          <span className="review-lbl">Billing Status</span>
-                          <span className="review-val">{status}</span>
+                          <span className="review-lbl">Expected Guests</span>
+                          <span className="review-val">{guests} Guests</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="review-card">
-                      <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#843c0c', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>Package & Billing Details</h4>
-                      <div className="review-grid">
+                      <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#843c0c', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>Payment & Billing Structure</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div className="review-item">
                           <span className="review-lbl">Selected Package</span>
-                          <span className="review-val">{selectedPackage === 'Custom' ? 'Custom Package' : `${selectedPackage} Package`}</span>
+                          <span className="review-val" style={{ fontWeight: '700' }}>
+                            {selectedPackage === 'Custom' ? 'Custom Configuration' : `${selectedPackage} Package`} ({serviceType})
+                          </span>
                         </div>
-                        <div className="review-item">
-                          <span className="review-lbl">Menu / Service Config</span>
-                          <span className="review-val">{serviceType}</span>
+                        
+                        {/* Interactive Payment Option Selector */}
+                        <div style={{ marginTop: '8px' }}>
+                          <span className="review-lbl" style={{ display: 'block', marginBottom: '8px' }}>SELECT PAYMENT TERMS</span>
+                          <div className="payment-options-row" style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                              type="button"
+                              className={`payment-term-btn ${paymentOption === 'full' ? 'active' : ''}`}
+                              onClick={() => {
+                                setPaymentOption('full');
+                                setDepositPaid(true);
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '10px 12px',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                background: paymentOption === 'full' ? '#fffbeb' : 'white',
+                                borderColor: paymentOption === 'full' ? '#843c0c' : '#cbd5e1',
+                                color: paymentOption === 'full' ? '#843c0c' : '#475569',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              Full Payment (100%)
+                            </button>
+                            <button
+                              type="button"
+                              className={`payment-term-btn ${paymentOption === 'half' ? 'active' : ''}`}
+                              onClick={() => {
+                                setPaymentOption('half');
+                                setDepositPaid(true);
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '10px 12px',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                background: paymentOption === 'half' ? '#fffbeb' : 'white',
+                                borderColor: paymentOption === 'half' ? '#843c0c' : '#cbd5e1',
+                                color: paymentOption === 'half' ? '#843c0c' : '#475569',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              Half Payment (50%)
+                            </button>
+                            <button
+                              type="button"
+                              className={`payment-term-btn ${paymentOption === 'advance' ? 'active' : ''}`}
+                              onClick={() => {
+                                setPaymentOption('advance');
+                                setDepositPaid(true);
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '10px 12px',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                background: paymentOption === 'advance' ? '#fffbeb' : 'white',
+                                borderColor: paymentOption === 'advance' ? '#843c0c' : '#cbd5e1',
+                                color: paymentOption === 'advance' ? '#843c0c' : '#475569',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              Advanced Deposit
+                            </button>
+                          </div>
                         </div>
-                        <div className="review-item">
-                          <span className="review-lbl">Total Expected Guests</span>
-                          <span className="review-val">{guests} Guests</span>
-                        </div>
-                        <div className="review-item">
-                          <span className="review-lbl">Per Person Price</span>
-                          <span className="review-val">${guests > 0 ? (price / guests).toFixed(2) : '0.00'} / guest</span>
+
+                        {/* Custom Advance Percentage Input */}
+                        {paymentOption === 'advance' && (
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '12px', 
+                            background: '#f8fafc', 
+                            padding: '12px', 
+                            borderRadius: '8px',
+                            border: '1px solid #e2e8f0',
+                            marginTop: '4px'
+                          }}>
+                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>Deposit Percentage:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <input 
+                                type="number" 
+                                value={customAdvancePercent}
+                                onChange={(e) => setCustomAdvancePercent(Math.min(99, Math.max(1, parseInt(e.target.value) || 10)))}
+                                style={{ 
+                                  width: '60px', 
+                                  padding: '4px 8px', 
+                                  border: '1px solid #cbd5e1', 
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  textAlign: 'center'
+                                }}
+                              />
+                              <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>%</span>
+                            </div>
+                            <span style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>
+                              (Calculated Deposit: {formatCurrencyVal(price * (customAdvancePercent / 100), currency)})
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Deposit Paid Checkbox */}
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '8px', 
+                          marginTop: '8px',
+                          background: '#fcfcfc',
+                          padding: '10px 12px',
+                          border: '1px solid #f1f5f9',
+                          borderRadius: '8px'
+                        }}>
+                          <input 
+                            type="checkbox" 
+                            id="depositPaidCheck" 
+                            checked={depositPaid}
+                            onChange={(e) => setDepositPaid(e.target.checked)}
+                            style={{ width: '16px', height: '16px', accentColor: '#843c0c', cursor: 'pointer' }}
+                          />
+                          <label htmlFor="depositPaidCheck" style={{ fontSize: '12px', fontWeight: '700', color: '#334155', cursor: 'pointer' }}>
+                            {paymentOption === 'full' ? 'Mark Total Invoice as Paid (100% Paid)' : `Confirm Payment of Deposit/Advance (${paymentOption === 'half' ? '50%' : `${customAdvancePercent}%`})`}
+                          </label>
                         </div>
                       </div>
                     </div>
 
+                    {/* Calculated Invoice Summary Box */}
                     <div className="review-card" style={{ background: '#fffbeb', borderColor: '#fef3c7' }}>
-                      <div className="review-grid" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
+                      <div className="review-grid" style={{ gridTemplateColumns: '1.2fr 1fr 1fr', gap: '16px' }}>
                         <div className="review-item">
-                          <span className="review-lbl" style={{ color: '#b45309' }}>Total Calculated Cost</span>
-                          <span className="review-val" style={{ fontSize: '20px', fontWeight: '800', color: '#843c0c' }}>
-                            ${price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          <span className="review-lbl" style={{ color: '#b45309' }}>Total Cost</span>
+                          <span className="review-val" style={{ fontSize: '18px', fontWeight: '800', color: '#843c0c' }}>
+                            {formatCurrencyVal(price, currency)}
                           </span>
                         </div>
                         <div className="review-item">
-                          <span className="review-lbl" style={{ color: '#b45309' }}>Est. Margin Percentage</span>
-                          <span className="review-val green" style={{ fontSize: '18px', fontWeight: '800', color: '#10b981' }}>
-                            {selectedPackage === 'Economy' ? '32%' : selectedPackage === 'Standard' ? '40%' : selectedPackage === 'Premium' ? '48%' : '44%'}
+                          <span className="review-lbl" style={{ color: '#b45309' }}>Paid Amount</span>
+                          <span className="review-val" style={{ fontSize: '18px', fontWeight: '800', color: depositPaid ? '#10b981' : '#dc2626' }}>
+                            {formatCurrencyVal(depositPaid ? (paymentOption === 'full' ? price : paymentOption === 'half' ? price * 0.5 : price * (customAdvancePercent / 100)) : 0, currency)}
+                          </span>
+                        </div>
+                        <div className="review-item">
+                          <span className="review-lbl" style={{ color: '#b45309' }}>Remaining Balance</span>
+                          <span className="review-val" style={{ fontSize: '18px', fontWeight: '800', color: '#475569' }}>
+                            {formatCurrencyVal(price - (depositPaid ? (paymentOption === 'full' ? price : paymentOption === 'half' ? price * 0.5 : price * (customAdvancePercent / 100)) : 0), currency)}
                           </span>
                         </div>
                       </div>

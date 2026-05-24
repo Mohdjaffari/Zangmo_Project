@@ -96,7 +96,7 @@ body, html { margin: 0; padding: 0; font-family: var(--font); background: var(--
 .avatar-4 { background: #fef08a; color: #854d0e; }
 
 .modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(17, 24, 39, 0.4); display: flex; justify-content: center; align-items: center; z-index: 50; backdrop-filter: blur(2px); }
-.modal { background: white; width: 480px; border-radius: 6px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: var(--font); }
+.modal { background: white; width: 480px; max-width: 95vw; box-sizing: border-box; border-radius: 6px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); font-family: var(--font); }
 .modal-header { background: #111827; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
 .modal-header h3 { margin: 0; font-size: 16px; font-weight: 500; }
 .close-btn { background: none; border: none; color: #9ca3af; cursor: pointer; display: flex; align-items: center; padding: 0; }
@@ -157,3 +157,64 @@ input.pin-box:focus { border-color: var(--orange); box-shadow: 0 0 0 2px rgba(18
 .badge.staff { background: #f3f4f6; color: #4b5563; }
 .role-card h4 { margin: 0; font-size: 15px; color: var(--text-main); font-weight: 600; }
 .role-card p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+/* RESPONSIVE LAYOUT MEDIA QUERIES */
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 70px !important;
+  }
+  .brand h2, .brand p, .user-profile .user-info {
+    display: none !important;
+  }
+  .brand {
+    padding: 16px 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .brand-top {
+    gap: 0 !important;
+  }
+  .nav-menu {
+    padding: 0 !important;
+    align-items: center !important;
+  }
+  .nav-item {
+    border-left: none !important;
+    border-bottom: 4px solid transparent !important;
+    justify-content: center !important;
+    width: 48px !important;
+    height: 48px !important;
+  }
+  .nav-item.active {
+    border-bottom-color: var(--secondary-container) !important;
+  }
+  .nav-link {
+    padding: 0 !important;
+    justify-content: center !important;
+    font-size: 0 !important;
+  }
+  .nav-item svg {
+    margin: 0 !important;
+  }
+  .user-profile {
+    padding: 16px 0 !important;
+    justify-content: center !important;
+  }
+  
+  .role-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 576px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

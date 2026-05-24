@@ -598,3 +598,24 @@
   from { transform: translateY(100px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* RESPONSIVE LAYOUT MEDIA QUERIES */
+@media (max-width: 1024px) {
+  .inventory-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 992px) {
+  .inventory-overview-row {
+    grid-template-columns: 1fr;
+  }
+  .filters-card {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .filter-group {
+    min-width: 140px;
+  }
+}
+

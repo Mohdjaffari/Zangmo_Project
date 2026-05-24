@@ -655,3 +655,22 @@
   font-weight: 700;
   color: #ba1a1a;
 }
+
+/* RESPONSIVE LAYOUT MEDIA QUERIES */
+@media (max-width: 1024px) {
+  .customers-body {
+    position: relative;
+  }
+  .customers-detail-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    width: 480px;
+    max-width: calc(100% - 70px); /* Leave room for collapsed sidebar */
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.15);
+    border-left: 1px solid #e2e8f0;
+  }
+}
+
