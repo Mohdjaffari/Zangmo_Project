@@ -12,6 +12,21 @@ export default function Topbar({ title }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isPrinterConnected, setIsPrinterConnected] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [loggedBranch, setLoggedBranch] = useState(() => {
+    return localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)';
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setLoggedBranch(localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)');
+    };
+    window.addEventListener('storage', handleStorage);
+    const interval = setInterval(handleStorage, 1000);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
+  }, []);
   const [notifications, setNotifications] = useState([
     { id: 1, text: "System fully sync'd with offline printer spooler.", time: "Just now", type: "success" },
     { id: 2, text: "New menu category 'Beverages' added successfully.", time: "10 mins ago", type: "info" },
@@ -145,7 +160,7 @@ export default function Topbar({ title }) {
             cursor: 'pointer'
           }}
         >
-          <StoreIcon /> Downtown Branch <ChevronDown />
+          <StoreIcon /> {loggedBranch}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontSize: '13px', fontWeight: '500' }}>

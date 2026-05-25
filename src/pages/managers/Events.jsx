@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../components/Sidebar';
-import Topbar from '../components/Topbar';
-import '../assets/styles/users.css';
-import '../assets/styles/events.css';
+import { useNavigate } from 'react-router-dom';
+import ManagerSidebar from './ManagerSidebar';
+import Topbar from '../../components/Topbar';
+import '../../assets/styles/users.css';
+import '../../assets/styles/events.css';
 
 // SVG Icons
 const ChevronLeft = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>;
@@ -15,6 +16,8 @@ const RefreshIcon = () => <svg width="16" height="16" fill="none" stroke="curren
 const XIcon = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>;
 const ArrowLeftIcon = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
 const CheckIcon = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>;
+const PrinterIcon = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><path d="M6 14h12v8H6z" /></svg>;
+
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -30,6 +33,7 @@ const formatDateKey = (dateObj) => {
 };
 
 export default function Events() {
+  const navigate = useNavigate();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -50,16 +54,51 @@ export default function Events() {
     }
   }, [toast]);
   
-  // Event filters state
-  const [filters, setFilters] = useState({
-    Wedding: true,
-    Corporate: true,
-    Birthday: true,
-    "Private Dining": true
+  // Dynamic Event Types state loaded from localStorage
+  const [eventTypes, setEventTypes] = useState(() => {
+    const saved = localStorage.getItem('zangmo_event_types');
+    return saved ? JSON.parse(saved) : ['Wedding', 'Corporate', 'Birthday', 'Private Dining'];
   });
+
+  // Event filters state dynamically initialized from eventTypes
+  const [filters, setFilters] = useState(() => {
+    const savedTypes = localStorage.getItem('zangmo_event_types');
+    const types = savedTypes ? JSON.parse(savedTypes) : ['Wedding', 'Corporate', 'Birthday', 'Private Dining'];
+    const initialFilters = {};
+    types.forEach(t => {
+      initialFilters[t] = true;
+    });
+    return initialFilters;
+  });
+
+  // State to hold the new event type inputs
+  const [showFilterNewTypeInput, setShowFilterNewTypeInput] = useState(false);
+  const [filterNewTypeName, setFilterNewTypeName] = useState('');
+  const [showNewTypeInput, setShowNewTypeInput] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+
+  // Save eventTypes to localStorage
+  useEffect(() => {
+    localStorage.setItem('zangmo_event_types', JSON.stringify(eventTypes));
+  }, [eventTypes]);
+
+  const handleAddEventType = (newType) => {
+    if (!newType.trim()) return;
+    const trimmed = newType.trim();
+    if (eventTypes.includes(trimmed)) return;
+    const updatedTypes = [...eventTypes, trimmed];
+    setEventTypes(updatedTypes);
+    setFilters(prev => ({
+      ...prev,
+      [trimmed]: true
+    }));
+  };
 
   // Modal & Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isQuoteReviewModalOpen, setIsQuoteReviewModalOpen] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [receiptEvent, setReceiptEvent] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null); // null means Add, otherwise event object
   const [title, setTitle] = useState('');
   const [eventDate, setEventDate] = useState(formatDateKey(today));
@@ -365,6 +404,40 @@ export default function Events() {
     return days;
   }, [currentMonth, currentYear]);
 
+  const visibleDays = React.useMemo(() => {
+    if (viewMode === 'Month') {
+      return calendarDays;
+    }
+    
+    if (viewMode === 'Week') {
+      const pivotDate = selectedDate || new Date();
+      const startOfWeek = new Date(pivotDate);
+      const day = pivotDate.getDay();
+      startOfWeek.setDate(pivotDate.getDate() - day);
+      
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        days.push({
+          date: d,
+          isCurrentMonth: d.getMonth() === currentMonth
+        });
+      }
+      return days;
+    }
+    
+    if (viewMode === 'Day') {
+      const pivotDate = selectedDate || new Date();
+      return [{
+        date: new Date(pivotDate),
+        isCurrentMonth: pivotDate.getMonth() === currentMonth
+      }];
+    }
+    
+    return calendarDays;
+  }, [viewMode, calendarDays, selectedDate, currentMonth]);
+
   // Filter handlers
   const toggleFilter = (type) => {
     setFilters(prev => ({
@@ -379,21 +452,53 @@ export default function Events() {
   };
 
   // Navigations
-  const handlePrevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
+  const handlePrev = () => {
+    const pivotDate = selectedDate || new Date();
+    if (viewMode === 'Month') {
+      const newMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const newYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      setCurrentMonth(newMonth);
+      setCurrentYear(newYear);
+      
+      const targetDate = new Date(newYear, newMonth, Math.min(pivotDate.getDate(), new Date(newYear, newMonth + 1, 0).getDate()));
+      setSelectedDate(targetDate);
+    } else if (viewMode === 'Week') {
+      const newDate = new Date(pivotDate);
+      newDate.setDate(pivotDate.getDate() - 7);
+      setSelectedDate(newDate);
+      setCurrentMonth(newDate.getMonth());
+      setCurrentYear(newDate.getFullYear());
+    } else if (viewMode === 'Day') {
+      const newDate = new Date(pivotDate);
+      newDate.setDate(pivotDate.getDate() - 1);
+      setSelectedDate(newDate);
+      setCurrentMonth(newDate.getMonth());
+      setCurrentYear(newDate.getFullYear());
     }
   };
 
-  const handleNextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
+  const handleNext = () => {
+    const pivotDate = selectedDate || new Date();
+    if (viewMode === 'Month') {
+      const newMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+      const newYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+      setCurrentMonth(newMonth);
+      setCurrentYear(newYear);
+      
+      const targetDate = new Date(newYear, newMonth, Math.min(pivotDate.getDate(), new Date(newYear, newMonth + 1, 0).getDate()));
+      setSelectedDate(targetDate);
+    } else if (viewMode === 'Week') {
+      const newDate = new Date(pivotDate);
+      newDate.setDate(pivotDate.getDate() + 7);
+      setSelectedDate(newDate);
+      setCurrentMonth(newDate.getMonth());
+      setCurrentYear(newDate.getFullYear());
+    } else if (viewMode === 'Day') {
+      const newDate = new Date(pivotDate);
+      newDate.setDate(pivotDate.getDate() + 1);
+      setSelectedDate(newDate);
+      setCurrentMonth(newDate.getMonth());
+      setCurrentYear(newDate.getFullYear());
     }
   };
 
@@ -406,11 +511,38 @@ export default function Events() {
 
   // Helper to format values dynamically
   const getPackagePriceVal = (pkgName, curSymbol) => {
-    if (curSymbol === '$') {
-      return pkgName === 'Economy' ? 45 : pkgName === 'Standard' ? 75 : pkgName === 'Premium' ? 110 : 0;
-    } else {
-      return pkgName === 'Economy' ? 1850 : pkgName === 'Standard' ? 3200 : pkgName === 'Premium' ? 4800 : 0;
+    if (pkgName === 'Custom') return 0;
+    const items = builderDrafts[pkgName] || [];
+    if (items.length === 0) {
+      if (curSymbol === '$') {
+        return pkgName === 'Economy' ? 45 : pkgName === 'Standard' ? 75 : pkgName === 'Premium' ? 110 : 0;
+      } else {
+        return pkgName === 'Economy' ? 1850 : pkgName === 'Standard' ? 3200 : pkgName === 'Premium' ? 4800 : 0;
+      }
     }
+    const foodCost = items.reduce((sum, item) => sum + (item.price * (item.unitsPerPerson || 1.0)), 0);
+    const labor = foodCost * 0.15;
+    const basePrice = foodCost + labor;
+    
+    if (curSymbol === '$') {
+      return basePrice / 80;
+    }
+    return basePrice;
+  };
+
+  const getPackageMargin = (pkgName) => {
+    const items = builderDrafts[pkgName] || [];
+    if (items.length === 0) {
+      return pkgName === 'Economy' ? 32 : pkgName === 'Standard' ? 40 : pkgName === 'Premium' ? 48 : 0;
+    }
+    const foodCost = items.reduce((sum, item) => sum + (item.price * (item.unitsPerPerson || 1.0)), 0);
+    const labor = foodCost * 0.15;
+    const pricePerPerson = foodCost + labor;
+    const costRatio = pkgName === 'Economy' ? 0.45 : pkgName === 'Standard' ? 0.40 : 0.35;
+    const costFactorPerPerson = (foodCost * costRatio) + labor;
+    
+    if (pricePerPerson === 0) return 0;
+    return Math.max(0, Math.round(((pricePerPerson - costFactorPerPerson) / pricePerPerson) * 100));
   };
 
   const formatCurrencyVal = (amount, curSymbol) => {
@@ -471,21 +603,26 @@ export default function Events() {
     setDepositPaid(eventObj.depositPaid || (eventObj.status === 'Completed' || (eventObj.paidAmount && eventObj.paidAmount > 0)));
     setPaidAmount(eventObj.paidAmount !== undefined ? eventObj.paidAmount : (eventObj.status === 'Completed' ? eventObj.price : 0));
     
-    // Guess the package based on unit price
-    const perPerson = eventObj.guests > 0 ? Math.round(eventObj.price / eventObj.guests) : 0;
-    const economyPrice = getPackagePriceVal('Economy', currency);
-    const standardPrice = getPackagePriceVal('Standard', currency);
-    const premiumPrice = getPackagePriceVal('Premium', currency);
-    
-    if (perPerson === economyPrice || perPerson === 45 || perPerson === 1850) {
-      setSelectedPackage('Economy');
-    } else if (perPerson === standardPrice || perPerson === 75 || perPerson === 3200) {
-      setSelectedPackage('Standard');
-    } else if (perPerson === premiumPrice || perPerson === 110 || perPerson === 4800) {
-      setSelectedPackage('Premium');
+    if (eventObj.selectedPackage) {
+      setSelectedPackage(eventObj.selectedPackage);
     } else {
-      setSelectedPackage('Custom');
+      // Guess the package based on unit price
+      const perPerson = eventObj.guests > 0 ? Math.round(eventObj.price / eventObj.guests) : 0;
+      const economyPrice = getPackagePriceVal('Economy', currency);
+      const standardPrice = getPackagePriceVal('Standard', currency);
+      const premiumPrice = getPackagePriceVal('Premium', currency);
+      
+      if (perPerson === economyPrice || perPerson === 45 || perPerson === 1850) {
+        setSelectedPackage('Economy');
+      } else if (perPerson === standardPrice || perPerson === 75 || perPerson === 3200) {
+        setSelectedPackage('Standard');
+      } else if (perPerson === premiumPrice || perPerson === 110 || perPerson === 4800) {
+        setSelectedPackage('Premium');
+      } else {
+        setSelectedPackage('Custom');
+      }
     }
+
     
     setStep(1);
     setIsModalOpen(true);
@@ -533,7 +670,8 @@ export default function Events() {
       customAdvancePercent: parseInt(customAdvancePercent) || 0,
       depositPaid,
       paidAmount: finalPaidAmount,
-      balance: (parseFloat(price) || 0) - finalPaidAmount
+      balance: (parseFloat(price) || 0) - finalPaidAmount,
+      selectedPackage
     };
 
     if (editingEvent) {
@@ -633,16 +771,210 @@ export default function Events() {
   };
 
   const handleSaveDraft = () => {
+    const currentDraftItems = builderDrafts[selectedBuilderPackage] || [];
+    if (currentDraftItems.length === 0) {
+      showToast(`Cannot save empty draft. Please add at least one item to the ${selectedBuilderPackage} Package.`, 'error');
+      return;
+    }
     localStorage.setItem('zangmo_package_drafts', JSON.stringify(builderDrafts));
     showToast(`${selectedBuilderPackage} Package Draft saved successfully!`, 'success');
   };
 
   const handleExportQuote = () => {
-    showToast(`Preparing PDF export for the ${selectedBuilderPackage} Package Quote...`, 'info');
+    const currentDraftItems = builderDrafts[selectedBuilderPackage] || [];
+    if (currentDraftItems.length === 0) {
+      showToast(`Cannot export empty package. Please add at least one item to the ${selectedBuilderPackage} Package.`, 'error');
+      return;
+    }
+    setIsQuoteReviewModalOpen(true);
+  };
+
+  const handlePrintQuote = () => {
+    setIsQuoteReviewModalOpen(false);
+    showToast("Preparing document printing...", "info");
     setTimeout(() => {
       window.print();
-    }, 600);
+    }, 500);
   };
+
+  const getEventPackageName = (evt) => {
+    if (evt.selectedPackage) return evt.selectedPackage;
+    const perPerson = evt.guests > 0 ? Math.round(evt.price / evt.guests) : 0;
+    const economyPrice = getPackagePriceVal('Economy', currency);
+    const standardPrice = getPackagePriceVal('Standard', currency);
+    const premiumPrice = getPackagePriceVal('Premium', currency);
+    
+    if (perPerson === economyPrice || perPerson === 45 || perPerson === 1850) {
+      return 'Economy';
+    } else if (perPerson === standardPrice || perPerson === 75 || perPerson === 3200) {
+      return 'Standard';
+    } else if (perPerson === premiumPrice || perPerson === 110 || perPerson === 4800) {
+      return 'Premium';
+    } else {
+      return 'Custom';
+    }
+  };
+
+  const handlePrintEventReceipt = async (evt) => {
+    showToast("Preparing booking receipt...", "info");
+    
+    const pkgName = getEventPackageName(evt);
+    const items = pkgName !== 'Custom' ? (builderDrafts[pkgName] || []) : [];
+    const { paid, balance, statusText } = getEventPaymentInfo(evt);
+
+    let receiptStatus = statusText.toUpperCase();
+    let color = '#d97706'; // Orange/Amber
+    let bg = '#fef3c7'; // Light orange/amber
+    
+    if (receiptStatus === 'COMPLETED' || (receiptStatus === 'CONFIRMED' && balance === 0)) {
+      receiptStatus = 'PAID IN FULL';
+      color = '#10b981'; // Green
+      bg = '#d1fae5'; // Light green
+    } else if (receiptStatus === 'UNPAID' || receiptStatus === 'PENDING PAYMENT') {
+      receiptStatus = 'UNPAID';
+      color = '#dc2626'; // Red
+      bg = '#fee2e2'; // Light red
+    } else if (receiptStatus === 'PARTIALLY PAID' || receiptStatus === 'CONFIRMED') {
+      receiptStatus = 'PARTIALLY PAID';
+      color = '#d97706';
+      bg = '#fef3c7';
+    }
+
+    const htmlContent = `
+      <div style="font-family: 'Courier New', Courier, monospace; width: 280px; padding: 10px; margin: 0 auto; color: #000; font-size: 12px; line-height: 1.4;">
+        <div style="text-align: center; margin-bottom: 12px;">
+          <h2 style="font-size: 16px; margin: 0 0 4px 0; font-weight: bold; color: #843c0c;">Z&M CATERING & EVENTS</h2>
+          <p style="font-size: 10px; margin: 0 0 4px 0; color: #555;">${localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)'} - Event Services</p>
+          <p style="font-size: 10px; margin: 0; color: #555;">Date Printed: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+        </div>
+
+        <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
+
+        <div style="margin-bottom: 10px;">
+          <div style="font-weight: bold; font-size: 13px; margin-bottom: 6px; text-align: center; color: #843c0c;">EVENT RECEIPT</div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Client Event:</span>
+            <span style="font-weight: bold; text-align: right; max-width: 175px; word-break: break-all;">${evt.title}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Event Date:</span>
+            <span>${evt.date} @ ${evt.time}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Guests/Headcount:</span>
+            <span style="font-weight: bold;">${evt.guests} Pax</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Service Style:</span>
+            <span>${evt.serviceType}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Package Choice:</span>
+            <span style="font-weight: bold;">${pkgName} Package</span>
+          </div>
+        </div>
+
+        <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
+
+        ${items.length > 0 ? `
+          <div style="margin-bottom: 8px;">
+            <div style="font-weight: bold; font-size: 10px; text-transform: uppercase; margin-bottom: 6px;">Menu Items Breakdown</div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              ${items.map(item => `
+                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                  <span style="max-width: 190px;">${item.name} (${item.unitsPerPerson.toFixed(1)}x)</span>
+                  <span>${formatCurrencyVal(item.price * item.unitsPerPerson, currency)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
+        ` : ''}
+
+        <div style="margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+            <span>Total Cost Due:</span>
+            <span style="font-weight: bold;">${formatCurrencyVal(evt.price, currency)}</span>
+          </div>
+          
+          <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px; padding: 6px 8px; background-color: ${bg}; border-radius: 4px; align-items: center;">
+            <span style="font-weight: bold; color: ${color}; font-size: 11px;">STATUS:</span>
+            <span style="font-weight: bold; color: ${color}; font-size: 11px; letter-spacing: 0.5px;">${receiptStatus}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Amount Paid:</span>
+            <span style="font-weight: bold; color: #10b981;">${formatCurrencyVal(paid, currency)}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Balance Due:</span>
+            <span style="font-weight: bold; color: ${balance > 0 ? '#b45309' : '#555'};">${formatCurrencyVal(balance, currency)}</span>
+          </div>
+        </div>
+
+        <div style="border-top: 1px dashed #000; margin: 10px 0 6px 0;"></div>
+
+        <div style="text-align: center; font-size: 9px; color: #555; margin-top: 12px;">
+          <p style="margin: 0 0 3px 0; font-weight: bold;">THANK YOU FOR BOOKING WITH Z&M</p>
+          <p style="margin: 0;">WWW.ZM-KITCHEN.COM</p>
+        </div>
+      </div>
+    `;
+
+    if (window.electronAPI) {
+      try {
+        const printers = await window.electronAPI.getPrinters();
+        if (!printers || printers.length === 0) {
+          showToast("Printer Error: No connected printers found! Please check connections.", "error");
+          return;
+        }
+
+        const result = await window.electronAPI.printReceipt({
+          printerName: '',
+          htmlContent: htmlContent
+        });
+        if (result.success) {
+          showToast("Receipt printed successfully!", "success");
+        } else {
+          console.error("Silent print failed:", result.error);
+          showToast("Printer Error: Print failed. Verify printer status.", "error");
+        }
+      } catch (err) {
+        console.error("Error invoking print API:", err);
+        showToast("Error sending data to printer.", "error");
+      }
+    } else {
+      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Print Booking Receipt</title>
+              <style>
+                body { margin: 0; padding: 20px; }
+              </style>
+            </head>
+            <body>
+              ${htmlContent}
+              <script>
+                window.onload = function() {
+                  window.print();
+                  window.close();
+                };
+              </script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      } else {
+        showToast("Popup blocked! Enable popups to print in browser.", "error");
+      }
+    }
+  };
+
 
   // Cost and price calculation variables
   const currentDraftItems = builderDrafts[selectedBuilderPackage] || [];
@@ -650,14 +982,16 @@ export default function Events() {
   const laborAllocation = ingredientCost * 0.15;
   const bulkDiscount = builderHeadcount > 100 ? (ingredientCost + laborAllocation) * (builderDiscount / 100) : 0;
   
-  const baseSellingPrice = currency === '$' 
-    ? (selectedBuilderPackage === 'Economy' ? 45 : selectedBuilderPackage === 'Standard' ? 75 : 110)
-    : (selectedBuilderPackage === 'Economy' ? 1850 : selectedBuilderPackage === 'Standard' ? 3200 : 4800);
-  const pricePerPerson = baseSellingPrice;
-  const totalRevenue = pricePerPerson * builderHeadcount;
+  const conversionRate = currency === '$' ? 80 : 1;
+  const hasItems = currentDraftItems.length > 0;
+  const pricePerPerson = hasItems ? (ingredientCost + laborAllocation - bulkDiscount) / conversionRate : 0;
+  const totalRevenue = hasItems ? pricePerPerson * builderHeadcount + (builderServiceFee / conversionRate) : 0;
   
-  const costFactorPerPerson = ingredientCost + laborAllocation - bulkDiscount + (builderServiceFee / builderHeadcount) * 0.4;
-  const estMarginPercentage = Math.max(0, Math.round(((pricePerPerson - costFactorPerPerson) / pricePerPerson) * 100));
+  const costRatio = selectedBuilderPackage === 'Economy' ? 0.45 : selectedBuilderPackage === 'Standard' ? 0.40 : 0.35;
+  const costFactorPerPerson = hasItems 
+    ? ((ingredientCost * costRatio) + laborAllocation - bulkDiscount) / conversionRate + (builderServiceFee / builderHeadcount) * 0.4 / conversionRate 
+    : 0;
+  const estMarginPercentage = hasItems && pricePerPerson > 0 ? Math.max(0, Math.round(((pricePerPerson - costFactorPerPerson) / pricePerPerson) * 100)) : 0;
 
   return (
     <div className="events-container">
@@ -692,7 +1026,7 @@ export default function Events() {
           </button>
         </div>
       )}
-      <Sidebar activePage="events" />
+      <ManagerSidebar activePage="events" />
 
       <div className="events-content">
         <Topbar title={activeTab === 'calendar' ? "Events Calendar" : "Event Package Builder"} />
@@ -743,17 +1077,19 @@ export default function Events() {
             <div className="calendar-section">
               <div className="calendar-header">
                 <div className="month-title">
-                  {MONTH_NAMES[currentMonth]} {currentYear}
+                  {viewMode === 'Day' 
+                    ? (selectedDate || new Date()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
+                    : `${MONTH_NAMES[currentMonth]} ${currentYear}`}
                 </div>
 
                 <div className="calendar-controls">
-                  <button className="btn-nav" onClick={handlePrevMonth} title="Previous Month">
+                  <button className="btn-nav" onClick={handlePrev} title={`Previous ${viewMode}`}>
                     <ChevronLeft />
                   </button>
                   <button className="btn-today" onClick={handleToday}>
                     Today
                   </button>
-                  <button className="btn-nav" onClick={handleNextMonth} title="Next Month">
+                  <button className="btn-nav" onClick={handleNext} title={`Next ${viewMode}`}>
                     <ChevronRight />
                   </button>
 
@@ -785,14 +1121,25 @@ export default function Events() {
               </div>
 
               {/* Grid Days Calendar */}
-              <div className="calendar-grid">
+              <div 
+                className="calendar-grid"
+                style={{
+                  gridTemplateColumns: viewMode === 'Day' ? '1fr' : 'repeat(7, minmax(0, 1fr))'
+                }}
+              >
                 {/* Header Days of Week */}
-                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                  <div className="grid-header-cell" key={day}>{day}</div>
-                ))}
+                {viewMode === 'Day' ? (
+                  <div className="grid-header-cell" style={{ textAlign: 'left', paddingLeft: '16px' }}>
+                    {(selectedDate || new Date()).toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()}
+                  </div>
+                ) : (
+                  ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                    <div className="grid-header-cell" key={day}>{day}</div>
+                  ))
+                )}
 
                 {/* Day cells */}
-                {calendarDays.map((cell, idx) => {
+                {visibleDays.map((cell, idx) => {
                   const dayEvents = getEventsForDate(cell.date);
                   const isSelected = selectedDate && formatDateKey(cell.date) === formatDateKey(selectedDate);
                   const isToday = formatDateKey(cell.date) === formatDateKey(new Date());
@@ -803,31 +1150,89 @@ export default function Events() {
                       className={`grid-day-cell ${cell.isCurrentMonth ? '' : 'outside-month'} ${isToday ? 'today' : ''}`}
                       style={{
                         border: isSelected ? '2px solid #843c0c' : undefined,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        minHeight: viewMode === 'Day' ? '280px' : undefined,
+                        padding: viewMode === 'Day' ? '24px' : undefined
                       }}
-                      onClick={() => setSelectedDate(cell.date)}
+                      onClick={() => {
+                        setSelectedDate(cell.date);
+                        setCurrentMonth(cell.date.getMonth());
+                        setCurrentYear(cell.date.getFullYear());
+                      }}
                     >
-                      <div className="day-number">{cell.date.getDate()}</div>
-                      {dayEvents.map(evt => {
-                        const { paid, statusText } = getEventPaymentInfo(evt);
-                        let badgeClass = 'badge-pending';
-                        if (paid === evt.price || evt.status === 'Completed') badgeClass = 'badge-completed';
-                        else if (paid > 0 && paid < evt.price) badgeClass = 'badge-confirmed';
+                      <div className="day-number" style={{
+                        fontSize: viewMode === 'Day' ? '18px' : undefined,
+                        width: viewMode === 'Day' ? '32px' : undefined,
+                        height: viewMode === 'Day' ? '32px' : undefined,
+                        marginBottom: viewMode === 'Day' ? '16px' : undefined
+                      }}>
+                        {cell.date.getDate()}
+                      </div>
+                      
+                      {viewMode === 'Day' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {dayEvents.map(evt => {
+                            const { paid, statusText } = getEventPaymentInfo(evt);
+                            let badgeClass = 'badge-pending';
+                            if (paid === evt.price || evt.status === 'Completed') badgeClass = 'badge-completed';
+                            else if (paid > 0 && paid < evt.price) badgeClass = 'badge-confirmed';
 
-                        return (
-                          <div 
-                            key={evt.id}
-                            className={`event-badge ${badgeClass}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditModal(evt);
-                            }}
-                          >
-                            <span className="badge-title">{evt.title}</span>
-                            <span className="badge-time">{evt.time} • {statusText}</span>
-                          </div>
-                        );
-                      })}
+                            return (
+                              <div 
+                                key={evt.id}
+                                className={`event-badge ${badgeClass}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditModal(evt);
+                                }}
+                                style={{
+                                  padding: '16px',
+                                  fontSize: '12px',
+                                  borderRadius: '8px',
+                                  whiteSpace: 'normal',
+                                  overflow: 'visible',
+                                  textOverflow: 'clip'
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                  <span className="badge-title" style={{ fontSize: '13px' }}>{evt.title}</span>
+                                  <span className="badge-time" style={{ fontSize: '11px', fontWeight: 'bold' }}>{evt.time}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
+                                  <span>{evt.guests} Guests • {evt.serviceType}</span>
+                                  <span>Status: {statusText} • {formatCurrencyVal(evt.price, currency)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {dayEvents.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748b', fontSize: '14px', fontWeight: '500' }}>
+                              No events scheduled for this day. Click "Add New Event" to schedule one.
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        dayEvents.map(evt => {
+                          const { paid, statusText } = getEventPaymentInfo(evt);
+                          let badgeClass = 'badge-pending';
+                          if (paid === evt.price || evt.status === 'Completed') badgeClass = 'badge-completed';
+                          else if (paid > 0 && paid < evt.price) badgeClass = 'badge-confirmed';
+
+                          return (
+                            <div 
+                              key={evt.id}
+                              className={`event-badge ${badgeClass}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(evt);
+                              }}
+                            >
+                              <span className="badge-title">{evt.title}</span>
+                              <span className="badge-time">{evt.time} • {statusText}</span>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   );
                 })}
@@ -850,14 +1255,80 @@ export default function Events() {
             {/* Right Column: Event Filters & List */}
             <div className="filters-section">
               <div className="panel-card">
-                <h3>Event Filters</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ margin: 0 }}>Event Filters</h3>
+                  {!showFilterNewTypeInput && (
+                    <button 
+                      type="button" 
+                      onClick={() => setShowFilterNewTypeInput(true)} 
+                      style={{ 
+                        background: 'none', 
+                        border: 'none', 
+                        color: '#843c0c', 
+                        fontSize: '11px', 
+                        fontWeight: '700', 
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    >
+                      + Add Type
+                    </button>
+                  )}
+                </div>
+                
+                {showFilterNewTypeInput && (
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="New event type..." 
+                      value={filterNewTypeName}
+                      onChange={(e) => setFilterNewTypeName(e.target.value)}
+                      style={{ flex: 1, height: '32px', padding: '0 8px', fontSize: '12px' }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn-create" 
+                      onClick={() => {
+                        const trimmed = filterNewTypeName.trim();
+                        if (!trimmed) {
+                          showToast('Please enter a type name', 'error');
+                          return;
+                        }
+                        if (eventTypes.includes(trimmed)) {
+                          showToast('Type already exists', 'error');
+                          return;
+                        }
+                        handleAddEventType(trimmed);
+                        setFilterNewTypeName('');
+                        setShowFilterNewTypeInput(false);
+                        showToast(`Event type "${trimmed}" added!`);
+                      }}
+                      style={{ background: '#843c0c', padding: '0 10px', fontSize: '11px', height: '32px', borderRadius: '6px' }}
+                    >
+                      Save
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn-cancel" 
+                      onClick={() => {
+                        setFilterNewTypeName('');
+                        setShowFilterNewTypeInput(false);
+                      }}
+                      style={{ padding: '0 10px', fontSize: '11px', height: '32px', borderRadius: '6px' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
                 <div className="filter-group">
                   <span className="filter-label">EVENT TYPE</span>
-                  {['Wedding', 'Corporate', 'Birthday', 'Private Dining'].map(type => (
+                  {eventTypes.map(type => (
                     <label className="checkbox-label" key={type}>
                       <input 
                         type="checkbox" 
-                        checked={filters[type]} 
+                        checked={filters[type] ?? true} 
                         onChange={() => toggleFilter(type)} 
                       />
                       {type}
@@ -925,7 +1396,7 @@ export default function Events() {
                           </div>
                         </div>
 
-                        <div className="card-pricing-row" style={{ border: 'none', paddingTop: 0 }}>
+                        <div className="card-pricing-row" style={{ border: 'none', paddingTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           {isFullyPaid ? (
                             <span className="paid-badge">
                               <CheckCircleIcon /> Paid in Full
@@ -935,6 +1406,32 @@ export default function Events() {
                               <WalletIcon /> Balance: <span className="price-value" style={{ fontWeight: '800', color: '#b45309' }}>{formatCurrencyVal(balance, currency)}</span>
                             </span>
                           )}
+                          <button
+                            type="button"
+                            className="print-receipt-card-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReceiptEvent(evt);
+                              setIsReceiptModalOpen(true);
+                            }}
+                            title="Print Booking Receipt"
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#843c0c',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'background 0.2s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#fffbeb'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <PrinterIcon />
+                          </button>
                         </div>
                       </div>
                     );
@@ -1019,9 +1516,23 @@ export default function Events() {
 
               {/* Right Column: Drafting Box */}
               <div className="builder-right-section">
-                <div className="right-section-title-row">
+                {/* Print Only Header */}
+                <div className="print-only-header">
+                  <h2>Zangmo POS - Event Catering Quote</h2>
+                  <div className="print-meta-row" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #843c0c', paddingBottom: '8px', marginBottom: '20px' }}>
+                    <span style={{ fontWeight: '700' }}>Package: {selectedBuilderPackage} Package</span>
+                    <span style={{ fontWeight: '700' }}>Headcount: {builderHeadcount} Guests</span>
+                  </div>
+                </div>
+
+                <div className="right-section-title-row no-print">
                   <h3>{selectedBuilderPackage} Package</h3>
-                  <span className="drafting-badge">Drafting</span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span className="drafting-badge" style={{ background: '#f1f5f9', color: '#475569' }}>
+                      {builderHeadcount} Pax
+                    </span>
+                    <span className="drafting-badge">Drafting</span>
+                  </div>
                 </div>
 
                 {/* Package select tabs */}
@@ -1047,37 +1558,43 @@ export default function Events() {
                         className="draft-item-remove-btn"
                         onClick={() => handleRemoveItemFromDraft(item.id)}
                       >
-                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                           <circle cx="12" cy="12" r="10"/>
                           <line x1="8" y1="12" x2="16" y2="12"/>
                         </svg>
                       </button>
                       <div className="draft-item-details">
                         <span className="draft-item-name">{item.name}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                          <span style={{ fontSize: '10px', color: '#64748b' }}>{item.category} • </span>
-                          <input 
-                            type="number" 
-                            value={item.unitsPerPerson}
-                            step="0.1"
-                            min="0.1"
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 1.0;
-                              const updatedList = currentDraftItems.map(i => i.id === item.id ? { ...i, unitsPerPerson: val } : i);
-                              const updatedDrafts = { ...builderDrafts, [selectedBuilderPackage]: updatedList };
-                              setBuilderDrafts(updatedDrafts);
-                            }}
-                            style={{ 
-                              width: '38px', 
-                              border: '1px solid #cbd5e1', 
-                              borderRadius: '4px', 
-                              fontSize: '10px', 
-                              padding: '1px 2px', 
-                              textAlign: 'center',
-                              fontWeight: '600'
-                            }}
-                          />
-                          <span style={{ fontSize: '10px', color: '#64748b' }}> units/pp</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                          <span className={`draft-item-category-badge ${item.category.toLowerCase().replace(' ', '-')}`}>{item.category}</span>
+                          <div className="qty-selector-container">
+                            <button 
+                              type="button" 
+                              className="qty-btn minus"
+                              onClick={() => {
+                                const newVal = Math.max(0.1, parseFloat((item.unitsPerPerson - 0.1).toFixed(1)));
+                                const updatedList = currentDraftItems.map(i => i.id === item.id ? { ...i, unitsPerPerson: newVal } : i);
+                                const updatedDrafts = { ...builderDrafts, [selectedBuilderPackage]: updatedList };
+                                setBuilderDrafts(updatedDrafts);
+                              }}
+                            >
+                              -
+                            </button>
+                            <span className="qty-value">{item.unitsPerPerson.toFixed(1)}</span>
+                            <button 
+                              type="button" 
+                              className="qty-btn plus"
+                              onClick={() => {
+                                const newVal = parseFloat((item.unitsPerPerson + 0.1).toFixed(1));
+                                const updatedList = currentDraftItems.map(i => i.id === item.id ? { ...i, unitsPerPerson: newVal } : i);
+                                const updatedDrafts = { ...builderDrafts, [selectedBuilderPackage]: updatedList };
+                                setBuilderDrafts(updatedDrafts);
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}> qty/pp</span>
                         </div>
                       </div>
                       <span className="draft-item-price">Rs. {(item.price * (item.unitsPerPerson || 1.0)).toFixed(2)}</span>
@@ -1090,8 +1607,8 @@ export default function Events() {
                   )}
                 </div>
 
-                {/* Price and Cost Summary */}
-                <div className="draft-pricing-summary">
+                {/* Kitchen-Only Profitability Analysis (Hidden in Print) */}
+                <div className="draft-pricing-summary kitchen-only" style={{ marginBottom: '16px' }}>
                   <div className="draft-summary-row">
                     <span>Ingredient Cost /pp</span>
                     <span>Rs. {ingredientCost.toFixed(2)}</span>
@@ -1109,6 +1626,30 @@ export default function Events() {
                   <div className="draft-summary-row total">
                     <span>Price /person</span>
                     <span style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>Rs. {pricePerPerson.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Client-Facing Invoice/Quote Summary (Printed & Screen) */}
+                <div className="draft-pricing-summary client-quote-summary" style={{ marginTop: '0px' }}>
+                  <div className="draft-summary-row">
+                    <span>Event Headcount</span>
+                    <span style={{ fontWeight: '700' }}>{builderHeadcount} Guests</span>
+                  </div>
+                  <div className="draft-summary-row">
+                    <span>Base Price /person</span>
+                    <span>{formatCurrencyVal(pricePerPerson, currency)}</span>
+                  </div>
+                  <div className="draft-summary-row" style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '8px', marginTop: '4px' }}>
+                    <span>Catering Subtotal</span>
+                    <span>{formatCurrencyVal(pricePerPerson * builderHeadcount, currency)}</span>
+                  </div>
+                  <div className="draft-summary-row">
+                    <span>Fixed Service Fee</span>
+                    <span>{formatCurrencyVal(builderServiceFee / conversionRate, currency)}</span>
+                  </div>
+                  <div className="draft-summary-row total" style={{ borderTop: '1px solid #0f172a', paddingTop: '10px' }}>
+                    <span>Grand Total Quote</span>
+                    <span style={{ fontSize: '20px', fontWeight: '800', color: '#843c0c' }}>{formatCurrencyVal(totalRevenue, currency)}</span>
                   </div>
                 </div>
 
@@ -1170,10 +1711,12 @@ export default function Events() {
             {/* Adjustments Bottom Panel */}
             <div className="adjustments-panel-card">
               <div className="adjustments-header-row">
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
+                <div className="header-icon-wrapper">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
                 <h3>Bulk Pricing Adjustments</h3>
               </div>
               <div className="adjustments-inputs-grid">
@@ -1205,12 +1748,12 @@ export default function Events() {
                 <div className="adjustment-field-group">
                   <label>Fixed Service Fee</label>
                   <div className="adjustment-input-box has-prefix">
-                    <span className="adjustment-prefix-label">Rs.</span>
                     <input 
                       type="number" 
                       value={builderServiceFee}
                       onChange={(e) => setBuilderServiceFee(Math.max(0, parseInt(e.target.value) || 0))}
                     />
+                    <span className="adjustment-prefix-label">Rs.</span>
                   </div>
                 </div>
               </div>
@@ -1219,16 +1762,6 @@ export default function Events() {
         )}
       </div>
 
-      {/* Floating Capacity & Sync Bar */}
-      <div className="floating-status-bar">
-        <div className="status-item">
-          <ForkKnifeIcon /> Daily Capacity <span className="value" style={{ marginLeft: '6px' }}>{displayCapacity}%</span>
-        </div>
-        <div className="divider"></div>
-        <div className="status-item">
-          <RefreshIcon /> Kitchen Sync <span className="value" style={{ marginLeft: '6px', color: '#10b981' }}>Live</span>
-        </div>
-      </div>
 
       {/* Event Add/Edit Modal */}
       {isModalOpen && (
@@ -1280,7 +1813,7 @@ export default function Events() {
             </div>
 
             <form onSubmit={handleSaveEvent}>
-              <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '0 24px 24px 24px' }}>
+              <div className="modal-body" style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', padding: '0 24px 24px 24px', scrollbarGutter: 'stable' }}>
                 {step === 1 && (
                   <div className="step-1-content">
                     <div className="form-group">
@@ -1320,13 +1853,79 @@ export default function Events() {
 
                     <div className="row">
                       <div className="col">
-                        <label className="form-label">EVENT TYPE</label>
-                        <select className="input-field" value={type} onChange={(e) => setType(e.target.value)}>
-                          <option value="Wedding">Wedding</option>
-                          <option value="Corporate">Corporate</option>
-                          <option value="Birthday">Birthday</option>
-                          <option value="Private Dining">Private Dining</option>
-                        </select>
+                        <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>EVENT TYPE</span>
+                          {!showNewTypeInput && (
+                            <button 
+                              type="button" 
+                              onClick={() => setShowNewTypeInput(true)} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                color: '#843c0c', 
+                                fontSize: '10px', 
+                                fontWeight: '700', 
+                                cursor: 'pointer',
+                                padding: 0
+                              }}
+                            >
+                              + Add Type
+                            </button>
+                          )}
+                        </label>
+                        
+                        {showNewTypeInput ? (
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <input 
+                              type="text" 
+                              className="input-field" 
+                              placeholder="New type name..." 
+                              value={newTypeName}
+                              onChange={(e) => setNewTypeName(e.target.value)}
+                              style={{ flex: 1, height: '38px' }}
+                            />
+                            <button 
+                              type="button" 
+                              className="btn-create" 
+                              onClick={() => {
+                                const trimmed = newTypeName.trim();
+                                if (!trimmed) {
+                                  showToast('Please enter a type name', 'error');
+                                  return;
+                                }
+                                if (eventTypes.includes(trimmed)) {
+                                  showToast('Type already exists', 'error');
+                                  return;
+                                }
+                                handleAddEventType(trimmed);
+                                setType(trimmed); // Select the new type
+                                setNewTypeName('');
+                                setShowNewTypeInput(false);
+                                showToast(`Event type "${trimmed}" added!`);
+                              }}
+                              style={{ background: '#843c0c', padding: '0 12px', fontSize: '11px', height: '38px', borderRadius: '6px' }}
+                            >
+                              Save
+                            </button>
+                            <button 
+                              type="button" 
+                              className="btn-cancel" 
+                              onClick={() => {
+                                setNewTypeName('');
+                                setShowNewTypeInput(false);
+                              }}
+                              style={{ padding: '0 12px', fontSize: '11px', height: '38px', borderRadius: '6px' }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <select className="input-field" value={type} onChange={(e) => setType(e.target.value)}>
+                            {eventTypes.map(t => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                       <div className="col">
                         <label className="form-label">BILLING STATUS</label>
@@ -1397,7 +1996,7 @@ export default function Events() {
                           </div>
                           <div className="metric-box">
                             <span className="metric-lbl">Est. Margin</span>
-                            <span className="metric-val green">32%</span>
+                            <span className="metric-val green">{getPackageMargin('Economy')}%</span>
                           </div>
                         </div>
                         <button 
@@ -1449,7 +2048,7 @@ export default function Events() {
                           </div>
                           <div className="metric-box">
                             <span className="metric-lbl">Est. Margin</span>
-                            <span className="metric-val green">40%</span>
+                            <span className="metric-val green">{getPackageMargin('Standard')}%</span>
                           </div>
                         </div>
                         <button 
@@ -1496,7 +2095,7 @@ export default function Events() {
                           </div>
                           <div className="metric-box">
                             <span className="metric-lbl">Est. Margin</span>
-                            <span className="metric-val green">48%</span>
+                            <span className="metric-val green">{getPackageMargin('Premium')}%</span>
                           </div>
                         </div>
                         <button 
@@ -1839,6 +2438,54 @@ export default function Events() {
                     <>
                       <button type="button" className="btn-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
                       <button 
+                        type="button" 
+                        className="btn-cancel" 
+                        onClick={() => {
+                          let finalPaidAmount = 0;
+                          let finalStatus = status;
+
+                          if (paymentOption === 'full') {
+                            if (depositPaid) {
+                              finalPaidAmount = price;
+                              finalStatus = 'Completed';
+                            } else {
+                              finalPaidAmount = 0;
+                              finalStatus = 'Pending Payment';
+                            }
+                          } else {
+                            const calculatedDeposit = paymentOption === 'half' ? (price * 0.5) : (price * (customAdvancePercent / 100));
+                            if (depositPaid) {
+                              finalPaidAmount = calculatedDeposit;
+                              finalStatus = 'Confirmed';
+                            } else {
+                              finalPaidAmount = 0;
+                              finalStatus = 'Pending Payment';
+                            }
+                          }
+
+                          const mockEvt = {
+                            title,
+                            date: eventDate,
+                            time: eventTime,
+                            status: finalStatus,
+                            type,
+                            guests: parseInt(guests) || 0,
+                            serviceType,
+                            price: parseFloat(price) || 0,
+                            paymentOption,
+                            customAdvancePercent: parseInt(customAdvancePercent) || 0,
+                            depositPaid,
+                            paidAmount: finalPaidAmount,
+                            balance: (parseFloat(price) || 0) - finalPaidAmount,
+                            selectedPackage
+                          };
+                          handlePrintEventReceipt(mockEvt);
+                        }}
+                        style={{ borderColor: '#843c0c', color: '#843c0c', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <PrinterIcon /> Print Receipt
+                      </button>
+                      <button 
                         type="submit" 
                         className="btn-create" 
                         style={{ background: '#843c0c' }}
@@ -1853,6 +2500,235 @@ export default function Events() {
           </div>
         </div>
       )}
+
+      {/* Quote Review Modal */}
+      {isQuoteReviewModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsQuoteReviewModalOpen(false)}>
+          <div className="modal" style={{ width: '560px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: '#1e293b' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '700' }}>Review Package Quote</h3>
+              <button type="button" className="close-btn" onClick={() => setIsQuoteReviewModalOpen(false)}>
+                <XIcon />
+              </button>
+            </div>
+            
+            <div className="modal-body" style={{ padding: '24px', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
+              <div style={{ background: '#fffbeb', border: '1px solid #fed7aa', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', color: '#843c0c', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Package Config</div>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{selectedBuilderPackage} Package</span>
+                  <span style={{ fontSize: '14px', color: '#475569', fontWeight: '700' }}>{builderHeadcount} Guests</span>
+                </div>
+              </div>
+
+              {/* Items Breakdown */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '10px' }}>Selected Menu Breakdown</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {currentDraftItems.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#334155' }}>
+                      <span style={{ fontWeight: '500' }}>{item.name} <span style={{ fontSize: '11px', color: '#64748b' }}>({item.unitsPerPerson}x)</span></span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: '700' }}>{formatCurrencyVal(item.price * item.unitsPerPerson, currency)}</span>
+                    </div>
+                  ))}
+                  {currentDraftItems.length === 0 && (
+                    <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px', padding: '12px 0' }}>No items in package</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Cost Summary */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
+                  <span>Ingredient Cost /pp</span>
+                  <span style={{ fontWeight: '600', color: '#334155' }}>{formatCurrencyVal(ingredientCost, currency)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
+                  <span>Labor Allocation (15%)</span>
+                  <span style={{ fontWeight: '600', color: '#334155' }}>{formatCurrencyVal(laborAllocation, currency)}</span>
+                </div>
+                {builderHeadcount > 100 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#10b981' }}>
+                    <span>Bulk Discount ({builderDiscount}%)</span>
+                    <span style={{ fontWeight: '600' }}>-{formatCurrencyVal(bulkDiscount, currency)}</span>
+                  </div>
+                )}
+                
+                <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#0f172a', fontWeight: '700' }}>
+                  <span>Base Price /person</span>
+                  <span style={{ color: '#843c0c' }}>{formatCurrencyVal(pricePerPerson, currency)}</span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b', borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
+                  <span>Subtotal ({builderHeadcount} pax)</span>
+                  <span style={{ fontWeight: '600', color: '#334155' }}>{formatCurrencyVal(pricePerPerson * builderHeadcount, currency)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
+                  <span>Fixed Service Fee</span>
+                  <span style={{ fontWeight: '600', color: '#334155' }}>{formatCurrencyVal(builderServiceFee / conversionRate, currency)}</span>
+                </div>
+                
+                <div style={{ borderTop: '2px solid #0f172a', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '18px', color: '#0f172a', fontWeight: '800' }}>
+                  <span>Grand Total Quote</span>
+                  <span style={{ color: '#843c0c' }}>{formatCurrencyVal(totalRevenue, currency)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+              <button type="button" className="btn-cancel" onClick={() => setIsQuoteReviewModalOpen(false)}>Back to Edit</button>
+              <button 
+                type="button" 
+                className="btn-create" 
+                onClick={handlePrintQuote}
+                style={{ background: '#843c0c' }}
+              >
+                Print Quote Document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Printed Thermal Receipt Modal Dialog */}
+      {isReceiptModalOpen && receiptEvent && (() => {
+        const pkgName = getEventPackageName(receiptEvent);
+        const items = pkgName !== 'Custom' ? (builderDrafts[pkgName] || []) : [];
+        const { paid, balance, statusText } = getEventPaymentInfo(receiptEvent);
+
+        let receiptStatus = statusText.toUpperCase();
+        let color = '#d97706'; // Orange/Amber
+        let bg = '#fef3c7'; // Light orange/amber
+        
+        if (receiptStatus === 'COMPLETED' || (receiptStatus === 'CONFIRMED' && balance === 0)) {
+          receiptStatus = 'PAID IN FULL';
+          color = '#10b981'; // Green
+          bg = '#d1fae5'; // Light green
+        } else if (receiptStatus === 'UNPAID' || receiptStatus === 'PENDING PAYMENT') {
+          receiptStatus = 'UNPAID';
+          color = '#dc2626'; // Red
+          bg = '#fee2e2'; // Light red
+        } else if (receiptStatus === 'PARTIALLY PAID' || receiptStatus === 'CONFIRMED') {
+          receiptStatus = 'PARTIALLY PAID';
+          color = '#d97706';
+          bg = '#fef3c7';
+        }
+
+        return (
+          <div className="order-modal-overlay" style={{ background: 'rgba(0,0,0,0.65)' }}>
+            <div className="thermal-receipt-modal" onClick={e => e.stopPropagation()} style={{ width: '400px' }}>
+              <button type="button" className="close-receipt-btn" onClick={() => {
+                setIsReceiptModalOpen(false);
+                setReceiptEvent(null);
+              }}>
+                <XIcon />
+              </button>
+
+              <div className="receipt-paper-content" style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
+                <div className="receipt-paper-header" style={{ textAlign: 'center' }}>
+                  <h2 style={{ fontSize: '18px', margin: '0 0 4px 0', color: '#843c0c', fontWeight: '800' }}>Z&M CATERING</h2>
+                  <p className="branch-meta" style={{ fontSize: '11px', margin: '0 0 2px 0', fontWeight: 'bold' }}>{localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)'} - Event Services</p>
+                  <p className="date-meta" style={{ fontSize: '10px', margin: '0' }}>Date: {new Date().toLocaleDateString()}</p>
+                </div>
+
+                <div className="receipt-items-dashed-divider" />
+
+                <div style={{ marginBottom: '10px', fontSize: '12px' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '13px', margin: '0 auto 8px auto', textAlign: 'center', color: '#843c0c' }}>EVENT RECEIPT PREVIEW</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Event Name:</span>
+                    <span style={{ fontWeight: 'bold', textAlign: 'right', maxWidth: '200px', wordBreak: 'break-all' }}>{receiptEvent.title}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Event Date:</span>
+                    <span>{receiptEvent.date} @ {receiptEvent.time}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Guests:</span>
+                    <span style={{ fontWeight: 'bold' }}>{receiptEvent.guests} Pax</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Service:</span>
+                    <span>{receiptEvent.serviceType}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Package:</span>
+                    <span style={{ fontWeight: 'bold' }}>{pkgName} Package</span>
+                  </div>
+                </div>
+
+                <div className="receipt-items-dashed-divider" />
+
+                {items.length > 0 ? (
+                  <div style={{ marginBottom: '10px' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>Menu Details</div>
+                    <div className="receipt-items-table">
+                      {items.map((item, idx) => (
+                        <div className="receipt-item-line" key={idx}>
+                          <span className="qty-name">{item.name} ({item.unitsPerPerson.toFixed(1)}x)</span>
+                          <span className="price">{formatCurrencyVal(item.price * item.unitsPerPerson, currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="receipt-items-dashed-divider" />
+                  </div>
+                ) : null}
+
+                <div className="receipt-pricing-block" style={{ fontSize: '12px' }}>
+                  <div className="receipt-price-row">
+                    <span>Total Cost:</span>
+                    <span style={{ fontWeight: 'bold' }}>{formatCurrencyVal(receiptEvent.price, currency)}</span>
+                  </div>
+                  
+                  <div className="receipt-items-dashed-divider" style={{ margin: '8px 0' }} />
+
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    marginBottom: '8px', 
+                    padding: '6px 8px', 
+                    backgroundColor: bg, 
+                    borderRadius: '4px', 
+                    alignItems: 'center' 
+                  }}>
+                    <span style={{ fontWeight: 'bold', color: color, fontSize: '11px' }}>PAYMENT STATUS:</span>
+                    <span style={{ fontWeight: 'bold', color: color, fontSize: '11px', letterSpacing: '0.5px' }}>{receiptStatus}</span>
+                  </div>
+
+                  <div className="receipt-price-row">
+                    <span>Amount Paid:</span>
+                    <span style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrencyVal(paid, currency)}</span>
+                  </div>
+                  <div className="receipt-price-row">
+                    <span>Balance Due:</span>
+                    <span style={{ fontWeight: 'bold', color: balance > 0 ? '#b45309' : '#475569' }}>{formatCurrencyVal(balance, currency)}</span>
+                  </div>
+                </div>
+
+                <div className="receipt-items-dashed-divider" />
+
+                <div className="receipt-paper-footer">
+                  <p>THANK YOU FOR BOOKING WITH US</p>
+                  <p style={{ fontSize: '9px', fontWeight: '500', marginTop: '4px' }}>WWW.ZM-KITCHEN.COM</p>
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                className="btn-finalize-and-print-receipt" 
+                onClick={() => {
+                  handlePrintEventReceipt(receiptEvent);
+                  setIsReceiptModalOpen(false);
+                  setReceiptEvent(null);
+                }}
+                style={{ background: '#843c0c' }}
+              >
+                FINALIZE & PRINT RECEIPT
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
-import Topbar from '../components/Topbar';
-import '../assets/styles/users.css';
-import '../assets/styles/pos.css';
+import ManagerSidebar from './ManagerSidebar';
+import Topbar from '../../components/Topbar';
+import '../../assets/styles/users.css';
+import '../../assets/styles/pos.css';
 
 // SVG Icons
 const SearchIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>;
@@ -290,7 +290,7 @@ export default function POS() {
       const htmlContent = `
         <div class="receipt-paper-header" style="text-align: center;">
           <h2 style="font-size: 16px; margin: 0 0 2px 0;">Z&M KITCHEN</h2>
-          <p class="branch-meta" style="font-size: 10px; margin: 0 0 4px 0; color: #555;">Downtown Branch - Terminal 01</p>
+          <p class="branch-meta" style="font-size: 10px; margin: 0 0 4px 0; color: #555;">${localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)'} - Terminal 01</p>
           <p class="date-meta" style="font-size: 10px; margin: 0 0 4px 0; color: #555;">Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
           <p class="ticket-meta" style="font-size: 11px; margin: 0 0 10px 0; font-weight: bold;">Order: #${lastBilledTicket}</p>
         </div>
@@ -344,6 +344,25 @@ export default function POS() {
       }
     }
 
+    // Log transaction to localStorage
+    const usdAmount = total / 80;
+    const newSale = {
+      id: Date.now(),
+      ticketNo: lastBilledTicket,
+      branch: localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)',
+      amount: usdAmount,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      itemsCount: cartItems.reduce((acc, item) => acc + item.qty, 0)
+    };
+    try {
+      const saved = localStorage.getItem('zangmo_sales_transactions');
+      const sales = saved ? JSON.parse(saved) : [];
+      sales.push(newSale);
+      localStorage.setItem('zangmo_sales_transactions', JSON.stringify(sales));
+    } catch (err) {
+      console.error(err);
+    }
+
     setIsReceiptModalOpen(false);
     alert(`Receipt for Ticket #${lastBilledTicket} printed successfully!`);
     setCartItems([]); // Reset after printing completes
@@ -391,7 +410,7 @@ export default function POS() {
 
   return (
     <div className="pos-layout-container">
-      <Sidebar activePage="pos" />
+      <ManagerSidebar activePage="pos" />
 
       <div className="pos-main-wrapper" style={{ flexDirection: 'column' }}>
         <Topbar title="POS Terminal" />
@@ -576,7 +595,7 @@ export default function POS() {
             <div className="receipt-paper-content">
               <div className="receipt-paper-header">
                 <h2>Z&M KITCHEN</h2>
-                <p className="branch-meta">Downtown Branch - Terminal 01</p>
+                <p className="branch-meta">{localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)'} - Terminal 01</p>
                 <p className="date-meta">Date: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 <p className="ticket-meta">Order: #{lastBilledTicket}</p>
               </div>

@@ -65,8 +65,78 @@ const ArrowRightIcon = () => (
   </svg>
 );
 
-export default function Login() {
+export default function Login({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [staffId, setStaffId] = useState('');
+  const [password, setPassword] = useState('');
+
+  React.useEffect(() => {
+    const savedAccounts = localStorage.getItem('zangmo_user_accounts');
+    if (!savedAccounts) {
+      const initialAccounts = [
+        { username: 'admin', password: 'admin', role: 'Admin', name: 'Mehdi Khan', branch: 'Mehdi Kitchen (Main)' },
+        { username: 'manager', password: 'manager', role: 'Manager', name: 'Branch Manager', branch: 'Mehdi Kitchen (Main)' },
+        { username: 'zangmo', password: 'zangmo', role: 'Manager', name: 'Zangmo Wangchuck', branch: 'Zangmo Kitchen' },
+        { username: 'zm-4902', password: 'password', role: 'Manager', name: 'Zangmo Wangchuck', branch: 'Zangmo Kitchen' },
+        { username: 'zm-8831', password: 'password', role: 'Staff', name: 'Rahul Sharma', branch: 'Mehdi Kitchen (Main)' },
+        { username: 'zm-2309', password: 'password', role: 'Staff', name: 'Sunita Rai', branch: 'Zangmo Kitchen' },
+        { username: 'zm-1044', password: 'password', role: 'Staff', name: 'Asad Khan', branch: 'Mehdi Kitchen (Main)' }
+      ];
+      localStorage.setItem('zangmo_user_accounts', JSON.stringify(initialAccounts));
+    }
+
+    const savedSales = localStorage.getItem('zangmo_sales_transactions');
+    if (!savedSales) {
+      const initialSales = [
+        { id: 1, ticketNo: '8801', branch: 'Mehdi Kitchen (Main)', amount: 12450.00, date: 'May 23, 2026', itemsCount: 80 },
+        { id: 2, ticketNo: '8802', branch: 'Mehdi Kitchen (Main)', amount: 8200.00, date: 'May 24, 2026', itemsCount: 40 },
+        { id: 3, ticketNo: '8803', branch: 'Mehdi Kitchen (Main)', amount: 4000.00, date: 'May 25, 2026', itemsCount: 22 },
+        { id: 4, ticketNo: '8804', branch: 'Zangmo Kitchen', amount: 10150.00, date: 'May 24, 2026', itemsCount: 65 },
+        { id: 5, ticketNo: '8805', branch: 'Zangmo Kitchen', amount: 8092.50, date: 'May 25, 2026', itemsCount: 53 }
+      ];
+      localStorage.setItem('zangmo_sales_transactions', JSON.stringify(initialSales));
+    }
+  }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!staffId.trim() || !password.trim()) {
+      alert("Please enter both Staff ID and Password.");
+      return;
+    }
+
+    const savedAccounts = localStorage.getItem('zangmo_user_accounts');
+    let accounts = [];
+    if (savedAccounts) {
+      try {
+        accounts = JSON.parse(savedAccounts);
+      } catch (err) {
+        accounts = [];
+      }
+    }
+
+    const targetUser = staffId.trim().toLowerCase();
+    const account = accounts.find(acc => acc.username === targetUser);
+
+    if (!account) {
+      alert("Access Denied: Invalid Staff ID / Email or password.");
+      return;
+    }
+
+    if (account.password !== password) {
+      alert("Access Denied: Incorrect Password.");
+      return;
+    }
+
+    // Set local session storage indicator
+    sessionStorage.setItem('zangmo_logged_in', 'true');
+    localStorage.setItem('zangmo_user_role', account.role);
+    localStorage.setItem('zangmo_logged_user_name', account.name);
+    localStorage.setItem('zangmo_logged_branch', account.branch || 'Mehdi Kitchen (Main)');
+    if (onLoginSuccess) {
+      onLoginSuccess();
+    }
+  };
 
   return (
     <div className="login-container">
@@ -80,26 +150,7 @@ export default function Login() {
         <h1 className="login-title">Z&M Kitchen</h1>
         <p className="login-subtitle">Staff Access Portal</p>
         
-        <form onSubmit={(e) => e.preventDefault()}>
-          <div className="form-group">
-            <div className="form-header">
-              <label className="form-label" htmlFor="branch">Branch Location</label>
-            </div>
-            <div className="input-wrapper">
-              <div className="input-icon">
-                <StoreIcon />
-              </div>
-              <select id="branch" className="input-field" defaultValue="downtown">
-                <option value="downtown">Downtown Core</option>
-                <option value="uptown">Uptown Branch</option>
-                <option value="westside">Westside Mall</option>
-              </select>
-              <div className="dropdown-arrow">
-                <ChevronDownIcon />
-              </div>
-            </div>
-          </div>
-
+        <form onSubmit={handleSubmit}>
           <div className="form-group">
             <div className="form-header">
               <label className="form-label" htmlFor="staffId">Staff ID or Email</label>
@@ -112,7 +163,10 @@ export default function Login() {
                 type="text" 
                 id="staffId" 
                 className="input-field" 
-                placeholder="e.g. ZM-1042" 
+                placeholder="e.g. ZM-1042 or admin" 
+                value={staffId}
+                onChange={e => setStaffId(e.target.value)}
+                required
               />
             </div>
           </div>
@@ -131,6 +185,9 @@ export default function Login() {
                 id="password" 
                 className="input-field" 
                 placeholder="••••••••" 
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
               />
               <button 
                 type="button" 

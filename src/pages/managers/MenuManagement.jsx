@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import '../assets/styles/users.css';
-import '../assets/styles/pos.css';
-import '../assets/styles/add-item.css';
-import Sidebar from '../components/Sidebar';
-import Topbar from '../components/Topbar';
+import '../../assets/styles/users.css';
+import '../../assets/styles/pos.css';
+import '../../assets/styles/add-item.css';
+import ManagerSidebar from './ManagerSidebar';
+import Topbar from '../../components/Topbar';
 
 // Icons
 const SearchIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>;
@@ -802,7 +802,7 @@ export default function MenuManagement() {
 
   return (
     <div className="pos-container">
-      <Sidebar activePage="menu-management" />
+      <ManagerSidebar activePage="menu-management" />
       
       <div className="pos-content">
         <Topbar title="Menu Management" />

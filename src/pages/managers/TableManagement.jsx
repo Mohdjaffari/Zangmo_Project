@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
-import Topbar from '../components/Topbar';
-import '../assets/styles/users.css'; 
-import '../assets/styles/tables.css';
+import ManagerSidebar from './ManagerSidebar';
+import Topbar from '../../components/Topbar';
+import '../../assets/styles/users.css'; 
+import '../../assets/styles/tables.css';
 
 // SVG Icons
 const UsersIcon = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>;
@@ -384,6 +384,30 @@ export default function TableManagement() {
   const handleFinalizePrintTable = async () => {
     if (!selectedTable) return;
 
+    const subtotal = orderTotal;
+    const tax = subtotal * 0.08;
+    const total = subtotal + tax;
+    const usdAmount = total / 80;
+    const ticketNo = selectedTable.ticketNo || Math.floor(4000 + Math.random() * 500).toString();
+
+    // Log transaction to localStorage
+    const newSale = {
+      id: Date.now(),
+      ticketNo: ticketNo,
+      branch: localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)',
+      amount: usdAmount,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      itemsCount: selectedTable.orderItems.reduce((acc, item) => acc + item.qty, 0)
+    };
+    try {
+      const saved = localStorage.getItem('zangmo_sales_transactions');
+      const sales = saved ? JSON.parse(saved) : [];
+      sales.push(newSale);
+      localStorage.setItem('zangmo_sales_transactions', JSON.stringify(sales));
+    } catch (err) {
+      console.error(err);
+    }
+
     // Set table state to Billed
     setTables(tables.map(t => {
       if (t.id === selectedTableId) {
@@ -412,7 +436,7 @@ export default function TableManagement() {
         const htmlContent = `
           <div class="receipt-paper-header" style="text-align: center;">
             <h2 style="font-size: 16px; margin: 0 0 2px 0;">Z&M KITCHEN</h2>
-            <p class="branch-meta" style="font-size: 10px; margin: 0 0 4px 0; color: #555;">Downtown Branch - Floor POS</p>
+            <p class="branch-meta" style="font-size: 10px; margin: 0 0 4px 0; color: #555;">${localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)'} - Floor POS</p>
             <p class="date-meta" style="font-size: 10px; margin: 0 0 4px 0; color: #555;">Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
             <p class="ticket-meta" style="font-size: 11px; margin: 0 0 10px 0; font-weight: bold;">Table: #${selectedTable.name.replace('T-', '')} — Order: #${ticketNo}</p>
           </div>
@@ -492,7 +516,7 @@ export default function TableManagement() {
               <body>
                 <div class="header">
                   <h2>Z&M KITCHEN</h2>
-                  <p>Downtown Branch - Floor POS</p>
+                  <p>${localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)'} - Floor POS</p>
                   <p>TABLE: #${selectedTable.name.replace('T-', '')}</p>
                   <p>DATE: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                 </div>
@@ -608,7 +632,7 @@ export default function TableManagement() {
 
   return (
     <div className="tables-container">
-      <Sidebar activePage="tables" />
+      <ManagerSidebar activePage="tables" />
 
       <div className="tables-content">
         <Topbar title="Table Management" />
@@ -1034,7 +1058,7 @@ export default function TableManagement() {
             <div className="receipt-paper-content">
               <div className="receipt-paper-header">
                 <h2>Z&M KITCHEN</h2>
-                <p className="branch-meta">Downtown Branch - Floor POS</p>
+                <p className="branch-meta">{localStorage.getItem('zangmo_logged_branch') || 'Mehdi Kitchen (Main)'} - Floor POS</p>
                 <p className="date-meta">Date: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 <p className="ticket-meta">Table: #{selectedTable.name.replace('T-', '')} {selectedTable.ticketNo ? `— Order: #${selectedTable.ticketNo}` : ''}</p>
               </div>
