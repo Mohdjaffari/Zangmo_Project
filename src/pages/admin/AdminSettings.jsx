@@ -11,6 +11,8 @@ const CloudUploadIcon = () => <svg width="20" height="20" fill="none" stroke="cu
 const PrinterIcon = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-12 0v4h8v-4m-8 0h8"/></svg>;
 const WarningIcon = () => <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
 const InfoIcon = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>;
+const StoreIcon = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="8" rx="2"/><path d="M4 21v-6a2 2 0 012-2h12a2 2 0 012 2v6M9 13v8M15 13v8"/></svg>;
+const ChevronDown = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>;
 
 const defaultSettings = {
   'Mehdi Kitchen (Main)': {
@@ -52,6 +54,10 @@ const defaultSettings = {
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState('general');
   const [selectedBranch, setSelectedBranch] = useState('Mehdi Kitchen (Main)');
+  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  const [showBackupDropdown, setShowBackupDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showPrinterDropdown, setShowPrinterDropdown] = useState(false);
 
   // Load database settings
   const [settingsDB, setSettingsDB] = useState(() => {
@@ -202,27 +208,35 @@ export default function AdminSettings() {
               <p>Manage global kitchen rules, branch identities, and technical integrations.</p>
             </div>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
               <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', textTransform: 'uppercase' }}>Select Branch Target</span>
-              <select 
-                value={selectedBranch} 
-                onChange={e => setSelectedBranch(e.target.value)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  background: 'white',
-                  fontFamily: 'var(--font)',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: '#1e293b',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
+              <button 
+                className="settings-branch-dropdown-btn" 
+                onClick={() => setShowBranchDropdown(!showBranchDropdown)}
               >
-                <option value="Mehdi Kitchen (Main)">Mehdi Kitchen (Main)</option>
-                <option value="Zangmo Kitchen">Zangmo Kitchen</option>
-              </select>
+                <StoreIcon />
+                <span>{selectedBranch}</span>
+                <ChevronDown />
+              </button>
+              {showBranchDropdown && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={() => setShowBranchDropdown(false)} />
+                  <div className="settings-branch-dropdown-menu">
+                    {['Mehdi Kitchen (Main)', 'Zangmo Kitchen'].map(opt => (
+                      <div 
+                        key={opt}
+                        className={`settings-branch-option ${selectedBranch === opt ? 'active' : ''}`}
+                        onClick={() => {
+                          setSelectedBranch(opt);
+                          setShowBranchDropdown(false);
+                        }}
+                      >
+                        {opt}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -453,15 +467,35 @@ export default function AdminSettings() {
 
                       <div className="settings-form-group">
                         <label>Cloud Schedule</label>
-                        <select 
-                          className="settings-input"
-                          value={backupSchedule}
-                          onChange={e => setBackupSchedule(e.target.value)}
-                        >
-                          <option value="Daily at Night">Daily at Night</option>
-                          <option value="Weekly">Weekly</option>
-                          <option value="Monthly">Monthly</option>
-                        </select>
+                        <div className="settings-custom-select-container">
+                          <button 
+                            type="button"
+                            className="settings-custom-select-btn"
+                            onClick={() => setShowBackupDropdown(!showBackupDropdown)}
+                          >
+                            <span>{backupSchedule}</span>
+                            <ChevronDown />
+                          </button>
+                          {showBackupDropdown && (
+                            <>
+                              <div style={{ position: 'fixed', inset: 0, zIndex: 98 }} onClick={() => setShowBackupDropdown(false)} />
+                              <div className="settings-custom-select-menu">
+                                {['Daily at Night', 'Weekly', 'Monthly'].map(opt => (
+                                  <div 
+                                    key={opt}
+                                    className={`settings-custom-select-option ${backupSchedule === opt ? 'active' : ''}`}
+                                    onClick={() => {
+                                      setBackupSchedule(opt);
+                                      setShowBackupDropdown(false);
+                                    }}
+                                  >
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -481,19 +515,39 @@ export default function AdminSettings() {
                   <div className="form-grid">
                     <div className="form-field">
                       <label>Node Status</label>
-                      <select 
-                        value={branchStatus} 
-                        onChange={e => setBranchStatus(e.target.value)}
-                        style={{
-                          padding: '10px 14px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px'
-                        }}
-                      >
-                        <option value="Operational">Operational</option>
-                        <option value="Maintenance">Maintenance / Prep Block</option>
-                        <option value="Closed">Closed</option>
-                      </select>
+                      <div className="settings-custom-select-container">
+                        <button 
+                          type="button"
+                          className="settings-custom-select-btn"
+                          onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                        >
+                          <span>{branchStatus === 'Maintenance' ? 'Maintenance / Prep Block' : branchStatus}</span>
+                          <ChevronDown />
+                        </button>
+                        {showStatusDropdown && (
+                          <>
+                            <div style={{ position: 'fixed', inset: 0, zIndex: 98 }} onClick={() => setShowStatusDropdown(false)} />
+                            <div className="settings-custom-select-menu">
+                              {[
+                                { value: 'Operational', label: 'Operational' },
+                                { value: 'Maintenance', label: 'Maintenance / Prep Block' },
+                                { value: 'Closed', label: 'Closed' }
+                              ].map(opt => (
+                                <div 
+                                  key={opt.value}
+                                  className={`settings-custom-select-option ${branchStatus === opt.value ? 'active' : ''}`}
+                                  onClick={() => {
+                                    setBranchStatus(opt.value);
+                                    setShowStatusDropdown(false);
+                                  }}
+                                >
+                                  {opt.label}
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                     <div className="form-field">
                       <label>Hours of Operation</label>
@@ -550,15 +604,35 @@ export default function AdminSettings() {
                   </div>
                   <div className="settings-form-group">
                     <label>Printer Hardware Profile</label>
-                    <select 
-                      className="settings-input" 
-                      value={printerDevice} 
-                      onChange={e => setPrinterDevice(e.target.value)}
-                    >
-                      <option value="EPSON TM-T88VI (USB)">EPSON TM-T88VI (USB)</option>
-                      <option value="STAR TSP143III (LAN)">STAR TSP143III (LAN)</option>
-                      <option value="Bixolon SRP-350III (USB)">Bixolon SRP-350III (USB)</option>
-                    </select>
+                    <div className="settings-custom-select-container">
+                      <button 
+                        type="button"
+                        className="settings-custom-select-btn"
+                        onClick={() => setShowPrinterDropdown(!showPrinterDropdown)}
+                      >
+                        <span>{printerDevice}</span>
+                        <ChevronDown />
+                      </button>
+                      {showPrinterDropdown && (
+                        <>
+                          <div style={{ position: 'fixed', inset: 0, zIndex: 98 }} onClick={() => setShowPrinterDropdown(false)} />
+                          <div className="settings-custom-select-menu">
+                            {['EPSON TM-T88VI (USB)', 'STAR TSP143III (LAN)', 'Bixolon SRP-350III (USB)'].map(opt => (
+                              <div 
+                                key={opt}
+                                className={`settings-custom-select-option ${printerDevice === opt ? 'active' : ''}`}
+                                onClick={() => {
+                                  setPrinterDevice(opt);
+                                  setShowPrinterDropdown(false);
+                                }}
+                              >
+                                {opt}
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="settings-info-alert" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534' }}>
                     <span className="material-symbols-outlined" style={{ color: '#166534' }}>check_circle</span>

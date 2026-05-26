@@ -14,6 +14,7 @@ const ClockIcon = () => <svg width="14" height="14" fill="none" stroke="currentC
 const LightbulbIcon = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 21h6M12 21v-4M9.5 9.5L7 12M14.5 9.5l2.5 2.5"/><path d="M12 17a5 5 0 100-10 5 5 0 000 10z"/></svg>;
 const EditIcon = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 const TrashIcon = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>;
+const ChevronDown = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>;
 
 const initialBranchesData = [
   {
@@ -62,6 +63,25 @@ export default function AdminBranches() {
     localStorage.setItem('zangmo_branches', JSON.stringify(branches));
   }, [branches]);
 
+  // Load staff list & sales transactions to fetch managers, staff counts, and revenues dynamically
+  const [dbStaff, setDbStaff] = useState([]);
+  const [dbTransactions, setDbTransactions] = useState([]);
+
+  useEffect(() => {
+    const savedStaff = localStorage.getItem('zangmo_staff_list');
+    if (savedStaff) {
+      try {
+        setDbStaff(JSON.parse(savedStaff));
+      } catch (e) {}
+    }
+    const savedTransactions = localStorage.getItem('zangmo_sales_transactions');
+    if (savedTransactions) {
+      try {
+        setDbTransactions(JSON.parse(savedTransactions));
+      } catch (e) {}
+    }
+  }, []);
+
   // Load staff to fetch managers dynamically
   const [managersList, setManagersList] = useState([]);
   useEffect(() => {
@@ -89,6 +109,20 @@ export default function AdminBranches() {
   // Assign Manager Modal State
   const [assigningBranchId, setAssigningBranchId] = useState(null);
   const [selectedManagerName, setSelectedManagerName] = useState('');
+  const [showManagerDropdown, setShowManagerDropdown] = useState(false);
+
+  // Edit Branch Modal State
+  const [editingBranch, setEditingBranch] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [editMonthlyRev, setEditMonthlyRev] = useState('');
+  const [editStaff, setEditStaff] = useState('');
+  const [editHours, setEditHours] = useState('');
+  const [editImage, setEditImage] = useState('');
+  const [editManager, setEditManager] = useState('');
+  const [showEditStatusDropdown, setShowEditStatusDropdown] = useState(false);
+  const [showEditEditManagerDropdown, setShowEditEditManagerDropdown] = useState(false);
 
   // Search query state
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,6 +159,7 @@ export default function AdminBranches() {
     e.stopPropagation();
     setAssigningBranchId(branch.id);
     setSelectedManagerName(branch.manager);
+    setShowManagerDropdown(false);
     setActiveDropdown(null);
   };
 
@@ -141,6 +176,58 @@ export default function AdminBranches() {
       return b;
     }));
     setAssigningBranchId(null);
+    setShowManagerDropdown(false);
+  };
+
+  const handleOpenEditBranch = (branch, e) => {
+    e.stopPropagation();
+    setEditingBranch(branch);
+    setEditTitle(branch.title);
+    setEditAddress(branch.address);
+    setEditStatus(branch.status);
+    
+    const dbStaffCount = dbStaff.filter(s => s.branch === branch.title).length;
+    const finalStaff = branch.staffEdited ? branch.staff : (dbStaffCount > 0 ? dbStaffCount.toString() : branch.staff);
+    setEditStaff(finalStaff);
+
+    const dbRev = dbTransactions.filter(t => t.branch === branch.title && t.status === 'Paid').reduce((sum, t) => sum + (t.amount || t.total || 0), 0);
+    const finalRev = branch.revEdited ? branch.monthlyRev : (dbRev > 0 ? `${currency} ${dbRev}` : branch.monthlyRev);
+    setEditMonthlyRev(finalRev.replace('$', '').replace('Rs. ', ''));
+
+    setEditHours(branch.hours);
+    setEditImage(branch.image);
+    setEditManager(branch.manager);
+    setActiveDropdown(null);
+    setShowEditStatusDropdown(false);
+    setShowEditEditManagerDropdown(false);
+  };
+
+  const handleSaveEditBranch = () => {
+    if (!editTitle.trim() || !editAddress.trim()) {
+      alert("Name and Address cannot be empty.");
+      return;
+    }
+    const initials = editManager.split(' ').map(p => p[0]).join('').toUpperCase();
+    setBranches(prev => prev.map(b => {
+      if (b.id === editingBranch.id) {
+        return {
+          ...b,
+          title: editTitle,
+          address: editAddress,
+          status: editStatus,
+          monthlyRev: editMonthlyRev,
+          staff: editStaff,
+          hours: editHours,
+          image: editImage,
+          manager: editManager,
+          managerInitials: initials || 'BM',
+          staffEdited: true,
+          revEdited: true
+        };
+      }
+      return b;
+    }));
+    setEditingBranch(null);
   };
 
   // Search Filter logic
@@ -195,8 +282,16 @@ export default function AdminBranches() {
                           <h3 className="branch-title">{branch.title}</h3>
                           <p className="branch-address"><MapPinIcon /> {branch.address}</p>
                         </div>
-                        <div className="branch-actions-container" onClick={(e) => e.stopPropagation()}>
-                          <div style={{ color: '#9ca3af', cursor: 'pointer', padding: '4px' }} onClick={(e) => toggleDropdown(branch.id, e)}>
+                        <div className="branch-actions-container" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button 
+                            type="button"
+                            className="branch-edit-card-btn"
+                            onClick={(e) => handleOpenEditBranch(branch, e)}
+                            title="Edit Branch Configuration"
+                          >
+                            <EditIcon />
+                          </button>
+                          <div style={{ color: '#9ca3af', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }} onClick={(e) => toggleDropdown(branch.id, e)}>
                             <DotsIcon />
                           </div>
                           {activeDropdown === branch.id && (
@@ -212,12 +307,27 @@ export default function AdminBranches() {
                         <div className="metric-box">
                           <div className="metric-label">Monthly Rev</div>
                           <div className="metric-value">
-                            {branch.monthlyRev.replace('$', currency === 'Rs.' ? 'Rs. ' : '$')}
+                            {(() => {
+                              if (branch.revEdited) {
+                                const clean = branch.monthlyRev.replace('$', '').replace('Rs. ', '');
+                                return `${currency} ${clean}`;
+                              }
+                              const dbRev = dbTransactions.filter(t => t.branch === branch.title && t.status === 'Paid').reduce((sum, t) => sum + (t.amount || t.total || 0), 0);
+                              return dbRev > 0 ? `${currency} ${dbRev.toLocaleString()}` : branch.monthlyRev.replace('$', currency === 'Rs.' ? 'Rs. ' : '$');
+                            })()}
                           </div>
                         </div>
                         <div className="metric-box">
                           <div className="metric-label">Total Staff</div>
-                          <div className="metric-value">{branch.staff}</div>
+                          <div className="metric-value">
+                            {(() => {
+                              if (branch.staffEdited) {
+                                return branch.staff;
+                              }
+                              const dbStaffCount = dbStaff.filter(s => s.branch === branch.title).length;
+                              return dbStaffCount > 0 ? dbStaffCount : branch.staff;
+                            })()}
+                          </div>
                         </div>
                       </div>
                       
@@ -260,7 +370,7 @@ export default function AdminBranches() {
 
       {/* Assign Manager Modal popup */}
       {assigningBranchId !== null && (
-        <div className="modal-overlay" onClick={() => setAssigningBranchId(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+        <div className="modal-overlay" onClick={() => { setAssigningBranchId(null); setShowManagerDropdown(false); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ background: 'white', width: '400px', padding: '24px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Assign Branch Manager</h3>
             <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
@@ -269,22 +379,41 @@ export default function AdminBranches() {
             
             <div className="form-group" style={{ marginBottom: '24px' }}>
               <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Select Staff Manager</label>
-              <select 
-                className="input-field" 
-                value={selectedManagerName}
-                onChange={e => setSelectedManagerName(e.target.value)}
-                style={{ width: '100%', marginTop: '6px' }}
-              >
-                {managersList.map((m, idx) => (
-                  <option key={idx} value={m.name}>{m.name}</option>
-                ))}
-              </select>
+              <div className="branches-custom-select-container" style={{ marginTop: '6px' }}>
+                <button 
+                  type="button"
+                  className="branches-custom-select-btn"
+                  onClick={() => setShowManagerDropdown(!showManagerDropdown)}
+                >
+                  <span>{selectedManagerName || 'Select Manager'}</span>
+                  <ChevronDown />
+                </button>
+                {showManagerDropdown && (
+                  <>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 104 }} onClick={() => setShowManagerDropdown(false)} />
+                    <div className="branches-custom-select-menu">
+                      {managersList.map((m, idx) => (
+                        <div 
+                          key={idx}
+                          className={`branches-custom-select-option ${selectedManagerName === m.name ? 'active' : ''}`}
+                          onClick={() => {
+                            setSelectedManagerName(m.name);
+                            setShowManagerDropdown(false);
+                          }}
+                        >
+                          {m.name}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button 
                 className="btn-outline" 
-                onClick={() => setAssigningBranchId(null)}
+                onClick={() => { setAssigningBranchId(null); setShowManagerDropdown(false); }}
                 style={{ padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', border: '1px solid #cbd5e1', background: 'white', fontSize: '13px', fontWeight: '600' }}
               >
                 Cancel
@@ -295,6 +424,215 @@ export default function AdminBranches() {
                 style={{ padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', border: 'none', background: '#b45309', color: 'white', fontSize: '13px', fontWeight: '600' }}
               >
                 Confirm Assignment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Branch Modal popup */}
+      {editingBranch !== null && (
+        <div className="modal-overlay" onClick={() => setEditingBranch(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ background: 'white', width: '500px', padding: '24px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <EditIcon /> Edit Branch Configuration
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Branch Name</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={editTitle} 
+                  onChange={e => setEditTitle(e.target.value)} 
+                  style={{ width: '100%', marginTop: '4px' }}
+                />
+              </div>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Physical Address</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={editAddress} 
+                  onChange={e => setEditAddress(e.target.value)} 
+                  style={{ width: '100%', marginTop: '4px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Monthly Revenue</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    value={editMonthlyRev} 
+                    onChange={e => setEditMonthlyRev(e.target.value)} 
+                    style={{ width: '100%', marginTop: '4px', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Total Staff</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    value={editStaff} 
+                    onChange={e => setEditStaff(e.target.value)} 
+                    style={{ width: '100%', marginTop: '4px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Operating Hours</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    value={editHours} 
+                    onChange={e => setEditHours(e.target.value)} 
+                    style={{ width: '100%', marginTop: '4px', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Branch Status</label>
+                  <div className="branches-custom-select-container" style={{ marginTop: '4px' }}>
+                    <button 
+                      type="button"
+                      className="branches-custom-select-btn"
+                      onClick={() => setShowEditStatusDropdown(!showEditStatusDropdown)}
+                    >
+                      <span>{editStatus}</span>
+                      <ChevronDown />
+                    </button>
+                    {showEditStatusDropdown && (
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 104 }} onClick={() => setShowEditStatusDropdown(false)} />
+                        <div className="branches-custom-select-menu">
+                          {['Operational', 'Maintenance', 'Closed'].map(opt => (
+                            <div 
+                              key={opt}
+                              className={`branches-custom-select-option ${editStatus === opt ? 'active' : ''}`}
+                              onClick={() => {
+                                setEditStatus(opt);
+                                setShowEditStatusDropdown(false);
+                              }}
+                            >
+                              {opt}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Branch Manager</label>
+                  <div className="branches-custom-select-container" style={{ marginTop: '4px' }}>
+                    <button 
+                      type="button"
+                      className="branches-custom-select-btn"
+                      onClick={() => setShowEditEditManagerDropdown(!showEditEditManagerDropdown)}
+                    >
+                      <span>{editManager || 'Select Manager'}</span>
+                      <ChevronDown />
+                    </button>
+                    {showEditEditManagerDropdown && (
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 104 }} onClick={() => setShowEditEditManagerDropdown(false)} />
+                        <div className="branches-custom-select-menu">
+                          {managersList.map((m, idx) => (
+                            <div 
+                              key={idx}
+                              className={`branches-custom-select-option ${editManager === m.name ? 'active' : ''}`}
+                              onClick={() => {
+                                setEditManager(m.name);
+                                setShowEditEditManagerDropdown(false);
+                              }}
+                            >
+                              {m.name}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Branch Image</label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                    <label 
+                      style={{
+                        padding: '10px 14px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#475569',
+                        background: '#f8fafc',
+                        cursor: 'pointer',
+                        display: 'inline-block',
+                        textAlign: 'center',
+                        flex: 1,
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => { e.target.style.background = '#f1f5f9'; }}
+                      onMouseLeave={(e) => { e.target.style.background = '#f8fafc'; }}
+                    >
+                      Choose Image File
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={e => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setEditImage(reader.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }} 
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                    {editImage && (
+                      <div 
+                        style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '6px',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          backgroundImage: `url(${editImage})`,
+                          border: '1px solid #cbd5e1'
+                        }} 
+                        title="Image Preview"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn-outline" 
+                onClick={() => setEditingBranch(null)}
+                style={{ padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', border: '1px solid #cbd5e1', background: 'white', fontSize: '13px', fontWeight: '600' }}
+              >
+                Discard
+              </button>
+              <button 
+                className="btn-orange" 
+                onClick={handleSaveEditBranch}
+                style={{ padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', border: 'none', background: '#b45309', color: 'white', fontSize: '13px', fontWeight: '600' }}
+              >
+                Save Changes
               </button>
             </div>
           </div>

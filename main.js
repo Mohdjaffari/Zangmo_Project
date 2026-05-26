@@ -25,8 +25,6 @@ function createWindow() {
   if (isDev) {
     // Load local Vite dev server
     mainWindow.loadURL('http://localhost:5173');
-    // Open DevTools in dev mode
-    mainWindow.webContents.openDevTools();
   } else {
     // Load compiled index.html
     mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));

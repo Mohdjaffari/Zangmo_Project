@@ -12,11 +12,7 @@ export default function AdminDashboard() {
   const [hiringRequests, setHiringRequests] = useState(() => {
     const saved = localStorage.getItem('zangmo_hiring_requests');
     if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
+      try { return JSON.parse(saved); } catch (e) { return []; }
     }
     return [
       { id: 1, name: 'Tandin Dorji', role: 'Kitchen Helper', branch: 'Mehdi Kitchen (Main)', wage: 12, justification: 'Need help with morning prep shifts.', status: 'Pending', date: 'May 24, 2026' },
@@ -27,11 +23,7 @@ export default function AdminDashboard() {
   const [salesTransactions, setSalesTransactions] = useState(() => {
     const saved = localStorage.getItem('zangmo_sales_transactions');
     if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
+      try { return JSON.parse(saved); } catch (e) { return []; }
     }
     return [
       { id: 1, ticketNo: '8801', branch: 'Mehdi Kitchen (Main)', amount: 12450.00, date: 'May 23, 2026', itemsCount: 80 },
@@ -45,11 +37,7 @@ export default function AdminDashboard() {
   const [staffList, setStaffList] = useState(() => {
     const saved = localStorage.getItem('zangmo_staff_list');
     if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
+      try { return JSON.parse(saved); } catch (e) { return []; }
     }
     return [
       { id: 1, staffId: 'ZM-4902', name: 'Zangmo Wangchuck', role: 'Manager', branch: 'Zangmo Kitchen', lastLogin: '2026-05-25 09:12', avatarClass: 'avatar-1' },
@@ -62,11 +50,7 @@ export default function AdminDashboard() {
   const [inventoryItems, setInventoryItems] = useState(() => {
     const saved = localStorage.getItem('zangmo_inventory_items');
     if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
+      try { return JSON.parse(saved); } catch (e) { return []; }
     }
     return [];
   });
@@ -74,11 +58,7 @@ export default function AdminDashboard() {
   const [branches, setBranches] = useState(() => {
     const saved = localStorage.getItem('zangmo_branches');
     if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
+      try { return JSON.parse(saved); } catch (e) { return []; }
     }
     return [
       { id: 1, title: 'Mehdi Kitchen (Main)', status: 'Operational' },
@@ -95,34 +75,23 @@ export default function AdminDashboard() {
       setCurrency(localStorage.getItem('zangmo_default_currency') || 'Rs.');
 
       const savedSales = localStorage.getItem('zangmo_sales_transactions');
-      if (savedSales) {
-        try { setSalesTransactions(JSON.parse(savedSales)); } catch (e) {}
-      }
+      if (savedSales) { try { setSalesTransactions(JSON.parse(savedSales)); } catch (e) { } }
 
       const savedHiring = localStorage.getItem('zangmo_hiring_requests');
-      if (savedHiring) {
-        try { setHiringRequests(JSON.parse(savedHiring)); } catch (e) {}
-      }
+      if (savedHiring) { try { setHiringRequests(JSON.parse(savedHiring)); } catch (e) { } }
 
       const savedStaff = localStorage.getItem('zangmo_staff_list');
-      if (savedStaff) {
-        try { setStaffList(JSON.parse(savedStaff)); } catch (e) {}
-      }
+      if (savedStaff) { try { setStaffList(JSON.parse(savedStaff)); } catch (e) { } }
 
       const savedInv = localStorage.getItem('zangmo_inventory_items');
-      if (savedInv) {
-        try { setInventoryItems(JSON.parse(savedInv)); } catch (e) {}
-      }
+      if (savedInv) { try { setInventoryItems(JSON.parse(savedInv)); } catch (e) { } }
 
       const savedBranches = localStorage.getItem('zangmo_branches');
-      if (savedBranches) {
-        try { setBranches(JSON.parse(savedBranches)); } catch (e) {}
-      }
+      if (savedBranches) { try { setBranches(JSON.parse(savedBranches)); } catch (e) { } }
     };
 
     window.addEventListener('storage', syncData);
     const interval = setInterval(syncData, 2000);
-
     return () => {
       window.removeEventListener('storage', syncData);
       clearInterval(interval);
@@ -157,7 +126,6 @@ export default function AdminDashboard() {
 
   const pendingHiringCount = hiringRequests.filter(r => r.status === 'Pending').length;
 
-  // Computations
   const totalRevenue = salesTransactions.reduce((sum, s) => sum + s.amount, 0);
 
   const activeBranchesCount = branches.filter(b => b.status === 'Operational').length;
@@ -165,15 +133,15 @@ export default function AdminDashboard() {
   const branchCapacityPct = totalBranchesCount > 0 ? Math.round((activeBranchesCount / totalBranchesCount) * 100) : 0;
 
   const getBranchPrepTime = (branchName) => {
-    if (branchName.toLowerCase().includes('mehdi')) return 765; // 12m 45s
-    if (branchName.toLowerCase().includes('zangmo')) return 970; // 16m 10s
-    return 900; // 15m
+    if (branchName.toLowerCase().includes('mehdi')) return 765;
+    if (branchName.toLowerCase().includes('zangmo')) return 970;
+    return 900;
   };
 
   const activeBranches = branches.filter(b => b.status === 'Operational');
   const avgPrepSeconds = activeBranches.length > 0
     ? activeBranches.reduce((sum, b) => sum + getBranchPrepTime(b.title), 0) / activeBranches.length
-    : 867.5; // default 14m 27s
+    : 867.5;
 
   const mins = Math.floor(avgPrepSeconds / 60);
   const secs = Math.round(avgPrepSeconds % 60);
@@ -190,25 +158,19 @@ export default function AdminDashboard() {
 
   const getBranchStats = (branchName) => {
     const isZangmo = branchName.toLowerCase().includes('zangmo');
-    const branchSales = salesTransactions.filter(s => 
-      s.branch.toLowerCase().includes(branchName.toLowerCase()) || 
+    const branchSales = salesTransactions.filter(s =>
+      s.branch.toLowerCase().includes(branchName.toLowerCase()) ||
       branchName.toLowerCase().includes(s.branch.toLowerCase())
     );
-    
     const revenue = branchSales.reduce((sum, s) => sum + s.amount, 0);
     const orders = branchSales.length;
     const avgCheck = orders > 0 ? (revenue / orders) : (isZangmo ? 38.45 : 42.10);
-    
-    const staff = staffList.filter(s => 
-      s.branch.toLowerCase().includes(branchName.toLowerCase()) || 
+    const staff = staffList.filter(s =>
+      s.branch.toLowerCase().includes(branchName.toLowerCase()) ||
       branchName.toLowerCase().includes(s.branch.toLowerCase())
     ).length;
-
     return {
-      revenue,
-      orders,
-      avgCheck,
-      staff,
+      revenue, orders, avgCheck, staff,
       waste: isZangmo ? '2.4%' : '1.2%',
       wasteTrend: isZangmo ? 'WATCHLIST' : 'OPTIMAL',
       wasteTrendClass: isZangmo ? 'down' : 'up'
@@ -220,43 +182,31 @@ export default function AdminDashboard() {
 
   const getDynamicAlerts = () => {
     const alerts = [];
-    
-    // 1. Inventory Alerts
     try {
       const lowStockItems = inventoryItems.filter(item => item.stock <= item.reorderPoint);
       lowStockItems.forEach(item => {
         const severity = item.stock === 0 ? 'critical' : 'warning';
         alerts.push({
-          id: `inv-${item.id}`,
-          type: severity,
-          icon: 'inventory',
+          id: `inv-${item.id}`, type: severity, icon: 'inventory',
           title: item.stock === 0 ? `Out of Stock: ${item.name}` : `Low Stock: ${item.name}`,
           desc: `Inventory level is ${item.stock} ${item.unit} (reorder threshold: ${item.reorderPoint} ${item.unit}).`,
           time: 'Just now'
         });
       });
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
 
-    // 2. Pending Hiring Alerts
     try {
       const pendingHiring = hiringRequests.filter(req => req.status === 'Pending');
       pendingHiring.forEach(req => {
         alerts.push({
-          id: `hire-${req.id}`,
-          type: 'info',
-          icon: 'work',
+          id: `hire-${req.id}`, type: 'info', icon: 'work',
           title: `Pending Hire: ${req.name}`,
           desc: `Hiring request for ${req.role} at ${req.branch}. Wage: $${req.wage}/hr.`,
           time: 'Just now'
         });
       });
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
 
-    // Fallbacks if no inventory or hiring alerts
     if (alerts.length === 0) {
       return [
         { id: 'f1', type: 'critical', icon: 'inventory', title: 'Low Stock: Organic Salmon', desc: 'Inventory level at Mehdi Kitchen below safety threshold (8kg remaining). Automatic reorder failed.', time: '12m ago' },
@@ -264,29 +214,23 @@ export default function AdminDashboard() {
         { id: 'f3', type: 'info', icon: 'schedule', title: 'Kitchen Delay Warning', desc: 'Average preparation time at Zangmo Kitchen exceeded 25 minutes during peak hour.', time: '1h ago' }
       ];
     }
-
     return alerts;
   };
 
   const dynamicAlerts = getDynamicAlerts();
-  const criticalAlertsCount = dynamicAlerts.filter(a => a.type === 'critical').length;
 
   const getLeaderboard = () => {
     const mehdiSales = salesTransactions.filter(s => s.branch.toLowerCase().includes('mehdi'));
     const zangmoSales = salesTransactions.filter(s => s.branch.toLowerCase().includes('zangmo'));
-
     const mehdiRevenue = mehdiSales.reduce((sum, s) => sum + s.amount, 0);
     const zangmoRevenue = zangmoSales.reduce((sum, s) => sum + s.amount, 0);
-
     const mehdiOrders = mehdiSales.length;
     const zangmoOrders = zangmoSales.length;
 
     const elenaOrders = Math.round(mehdiOrders * 0.6) || 85;
     const elenaRevenue = Math.round(mehdiRevenue * 0.6) || 750;
-
     const thomasOrders = Math.round(zangmoOrders * 0.7) || 82;
     const thomasRevenue = Math.round(zangmoRevenue * 0.7) || 680;
-
     const samirOrders = Math.round(mehdiOrders * 0.3) || 42;
     const samirRevenue = Math.round(mehdiRevenue * 0.3) || 380;
 
@@ -309,7 +253,6 @@ export default function AdminDashboard() {
         <div className="dashboard-page-content">
           {/* Section 1: KPI Grid */}
           <section className="kpi-grid">
-            {/* Total Revenue */}
             <div className="kpi-card">
               <div>
                 <p className="kpi-label">Consolidated Revenue</p>
@@ -321,7 +264,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Active Branches */}
             <div className="kpi-card">
               <div>
                 <p className="kpi-label">Active Kitchen Nodes</p>
@@ -335,7 +277,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Average Kitchen Efficiency */}
             <div className="kpi-card">
               <div>
                 <p className="kpi-label">Avg Kitchen Efficiency</p>
@@ -347,7 +288,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Combined Labor Cost */}
             <div className="kpi-card">
               <div>
                 <p className="kpi-label">Average Labor Cost</p>
@@ -362,7 +302,7 @@ export default function AdminDashboard() {
 
           {/* Section 2: Side-by-Side Comparison */}
           <section className="comparison-grid">
-            {/* Mehdi Kitchen Card */}
+            {/* Mehdi Kitchen */}
             <div className="branch-panel-card">
               <div className="branch-panel-header">
                 <div className="branch-header-left">
@@ -373,10 +313,7 @@ export default function AdminDashboard() {
               </div>
               <div className="branch-panel-body">
                 <div className="branch-bg-visual">
-                  <img
-                    alt="Data Visualization"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCv07khqhEipB1-9Uo6KnOVoug3FbhjR4WTcpL5viZn2Ckm6esXGuf24XZ67IRr309Rklzs3O3NYWli8mradzzmXHARTkZEW9fTDE6ffsCO3N4GpPcSNz0WwdXBnSGSzGuqPTWccbchZ-djGKMqpoHYJRqgp9SbZkCHX2Czwv6aFmHujFG-7dmbtHOXyVNYvilzm5ew4PoK4l1L8fet9Zxi8olJejwbEsIaV4N3--jZdOl25bsZU5N_rRe4-tsqB-xdVMKvenbk_dZc"
-                  />
+                  <img alt="Data Visualization" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCv07khqhEipB1-9Uo6KnOVoug3FbhjR4WTcpL5viZn2Ckm6esXGuf24XZ67IRr309Rklzs3O3NYWli8mradzzmXHARTkZEW9fTDE6ffsCO3N4GpPcSNz0WwdXBnSGSzGuqPTWccbchZ-djGKMqpoHYJRqgp9SbZkCHX2Czwv6aFmHujFG-7dmbtHOXyVNYvilzm5ew4PoK4l1L8fet9Zxi8olJejwbEsIaV4N3--jZdOl25bsZU5N_rRe4-tsqB-xdVMKvenbk_dZc" />
                 </div>
                 <div className="branch-stats-grid">
                   <div className="branch-stat-item">
@@ -403,7 +340,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Zangmo Kitchen Card */}
+            {/* Zangmo Kitchen */}
             <div className="branch-panel-card">
               <div className="branch-panel-header">
                 <div className="branch-header-left">
@@ -414,10 +351,7 @@ export default function AdminDashboard() {
               </div>
               <div className="branch-panel-body">
                 <div className="branch-bg-visual">
-                  <img
-                    alt="Data Analytics"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCR25iI8YCWY_39J6zWE10uQLkcHksr9zxaqDh4yhA8UMen5My6FC37vTgvUzqNRonralaamhnaJfg1AmOIPR7sJbvGa6bs-JEhPS7FUw8HanGpDft4MXlVhMafDrNWNOJ8iG2f93u8u8Cgc1SCaTY33CNm3xQuLRf4TReZhtb-zu0j7jqSmqrXVQ4jjvDWFfEl0T0dgd0p64pRqJXkSfW9F8cn8ud37TRfxWWIZ40enuNxfd9jYOUow2csZtrDyMKDeLFT5vbz1mob"
-                  />
+                  <img alt="Data Analytics" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCR25iI8YCWY_39J6zWE10uQLkcHksr9zxaqDh4yhA8UMen5My6FC37vTgvUzqNRonralaamhnaJfg1AmOIPR7sJbvGa6bs-JEhPS7FUw8HanGpDft4MXlVhMafDrNWNOJ8iG2f93u8u8Cgc1SCaTY33CNm3xQuLRf4TReZhtb-zu0j7jqSmqrXVQ4jjvDWFfEl0T0dgd0p64pRqJXkSfW9F8cn8ud37TRfxWWIZ40enuNxfd9jYOUow2csZtrDyMKDeLFT5vbz1mob" />
                 </div>
                 <div className="branch-stats-grid">
                   <div className="branch-stat-item">
@@ -445,7 +379,7 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* Hiring Approvals Summary panel */}
+          {/* Hiring Approvals Panel */}
           {pendingHiringCount > 0 && (
             <section style={{ marginBottom: '24px', background: 'white', border: '1px solid #e0e3e6', borderRadius: '8px', padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -459,21 +393,11 @@ export default function AdminDashboard() {
                   <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                     <div>
                       <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#0f172a', fontWeight: '600' }}>{req.name} for <span style={{ color: '#b45309' }}>{req.role}</span></h4>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Branch: <strong>{req.branch}</strong> • Proposed: <strong>${req.wage}/hr</strong> • Justification: {req.justification}</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Branch: <strong>{req.branch}</strong> • Proposed: <strong>${req.wage}/hr</strong> • {req.justification}</p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button 
-                        onClick={() => handleRejectHiring(req.id)}
-                        style={{ padding: '6px 12px', borderRadius: '4px', background: 'white', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '600', color: '#64748b', cursor: 'pointer' }}
-                      >
-                        Reject
-                      </button>
-                      <button 
-                        onClick={() => handleApproveHiring(req.id)}
-                        style={{ padding: '6px 12px', borderRadius: '4px', background: '#b45309', border: 'none', fontSize: '12px', fontWeight: '600', color: 'white', cursor: 'pointer' }}
-                      >
-                        Approve Hire
-                      </button>
+                      <button onClick={() => handleRejectHiring(req.id)} style={{ padding: '6px 12px', borderRadius: '4px', background: 'white', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '600', color: '#64748b', cursor: 'pointer' }}>Reject</button>
+                      <button onClick={() => handleApproveHiring(req.id)} style={{ padding: '6px 12px', borderRadius: '4px', background: '#b45309', border: 'none', fontSize: '12px', fontWeight: '600', color: 'white', cursor: 'pointer' }}>Approve Hire</button>
                     </div>
                   </div>
                 ))}
@@ -483,7 +407,7 @@ export default function AdminDashboard() {
 
           {/* Section 3: Bottom Grid */}
           <section className="bottom-dashboard-grid">
-            {/* Operational Alerts Feed */}
+            {/* Operational Alerts */}
             <div className="alerts-panel">
               <div className="alerts-header">
                 <h3>
@@ -520,11 +444,7 @@ export default function AdminDashboard() {
                 {leaderboardList.map((leader, idx) => (
                   <div className="leader-item" key={leader.name}>
                     <div className="leader-avatar-box">
-                      <img
-                        alt={leader.name}
-                        className={`leader-avatar ${leader.rankClass}`}
-                        src={leader.avatar}
-                      />
+                      <img alt={leader.name} className={`leader-avatar ${leader.rankClass}`} src={leader.avatar} />
                       <span className={`leader-rank-badge ${leader.rankClass}`}>{idx + 1}</span>
                     </div>
                     <div className="leader-info-box">

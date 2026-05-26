@@ -538,3 +538,67 @@
 .leaderboard-footer-btn:hover {
   text-decoration: underline;
 }
+
+/* Custom View Branch Dropdown in dashboard header */
+.dashboard-branch-dropdown-container {
+  position: relative;
+}
+
+.dashboard-branch-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  height: 38px;
+  box-sizing: border-box;
+}
+
+.dashboard-branch-dropdown-btn:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.dashboard-branch-dropdown-menu {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  z-index: 999;
+  width: 220px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-branch-option {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.dashboard-branch-option:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.dashboard-branch-option.active {
+  background: #fffcf9;
+  color: #fc8f34;
+}
+
